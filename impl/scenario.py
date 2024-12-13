@@ -5,8 +5,7 @@ import numpy as np
 #Keywords: Board, Environment, Position, Tile, Player, Step(Move), Death(Starvation, Lion)
 #   Number of steps(food?), Tree(food source), Lion,  
 
-#TODO detect unavoidable death
-TREE_RATIO = 0.4
+TREE_RATIO = 0.3
 LION_RATIO = 0.3
 
 INITIAL_NUMBER_OF_STEPS = 5
@@ -37,6 +36,11 @@ class Environment:
         self.down = down
         self.left = left
 
+    def __eq__(self, other):
+        if self.right == other.right and  self.left == other.left and  self.up == other.up and  self.down == other.down:
+            return True
+        return False
+
 
 
 class Position:
@@ -62,8 +66,8 @@ def generate_board() -> list[list[TileState]]:
         board.append(r)
     return board
 
-##TODO BAD!!
-def translate_step(player_position: Position, step: Step) -> Position:
+def translate_step(current_position: Position, step: Step) -> Position:
+    player_position = Position(current_position.x, current_position.y)
     match step:
         case Step.UP:
             player_position.y -= 1
@@ -75,8 +79,8 @@ def translate_step(player_position: Position, step: Step) -> Position:
             player_position.y += 1
 
         case Step.LEFT:
-            player_position.x =- 1
-            
+            player_position.x -= 1
+
     if player_position.x == 10:
         player_position.x = 0
     if player_position.y == 10:
@@ -85,7 +89,7 @@ def translate_step(player_position: Position, step: Step) -> Position:
         player_position.x = 9
     if player_position.y == -1:
         player_position.y = 9
-        
+
     return player_position
 
 def place_player(board) -> Position:
@@ -101,7 +105,7 @@ def tree_consumed(board, current_position: Position):
         y = randint(0, 9)
         if board[x][y] not in [TileState.LION, TileState.TREE] and Position(x, y) != current_position:
             board[x][y] = TileState.TREE
-            board[current_position.x][current_position.y] = TileState.LAND #TODO smth's worng i can FEEL IT
+            board[current_position.x][current_position.y] = TileState.LAND
             return board
 
 class Game:
@@ -109,7 +113,11 @@ class Game:
     def __init__(self, num_of_steps = INITIAL_NUMBER_OF_STEPS):
         self.board = generate_board()
         self.player_position = place_player(self.board)
-        #detect unavoidable death, re-roll board? #TODO
+        #re-generate board if death would be unavoidable
+        while self.detect_unavoidable_death():
+            self.board = generate_board()
+            self.player_position = place_player(self.board)
+
         self.steps_left = num_of_steps
         self.is_alive = True
     
@@ -126,8 +134,6 @@ class Game:
         return self.board[pos.x][pos.y]
 
     def detect_unavoidable_death(self) -> bool:
-        #TODO use
-
         # simple surround
         en = self.get_environment()
         if en.up == TileState.LION and en.right == TileState.LION and en.down == TileState.LION and en.left == TileState.LION:
@@ -144,12 +150,12 @@ class Game:
         if self.get_tile_at_position(new_position) == TileState.LAND:
             if self.steps_left > 0:
                 return ResultOfStep.OK
+            self.is_alive = False
             return ResultOfStep.STARVED
         
         if self.get_tile_at_position(new_position) == TileState.TREE:
             self.steps_left += STEPS_GAINED_ON_FINDING_TREE
             #remove tree, place elsewhere
-            #self.board[new_position[0]][new_position[1]] = TileState.LAND
             self.board = tree_consumed(self.board, self.player_position)
             
             return ResultOfStep.OK
