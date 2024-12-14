@@ -1,5 +1,5 @@
 #Do I make a very basic rule based one as well for comparison?
-from impl.genetic import Genetic
+
 #What DO we need to store?
 # - Game data, basic: number of steps achieved, trees consumed, cause of death, Game parameters(tree ratio, lion ratio, starting food, food gain), food at death?
 # - evolutionary: species(steps to offspring, food to offspring, forget rate, ),
@@ -11,7 +11,11 @@ from impl.genetic import Genetic
 
 
 from scenario import Game, ResultOfStep
+from stable_baselines3 import PPO, A2C
+
 from rule_based import RuleBasedPlayer
+from genetic import Genetic
+from rl import Agent
 
 #TODO put into rule based
 def run(alg):
@@ -33,9 +37,14 @@ def run(alg):
 
 def main():
     #run(RuleBasedPlayer(Game()))
-    g = Genetic(Game)
+
+    g = Genetic()
     g.run()
 
+    #TODO try different algs, tweak learning rate, rewards, explore/exploit?
+    # agent = Agent(A2C, "test", False)
+    # agent.learn(10000)
+    # agent.test()
     pass
 
 

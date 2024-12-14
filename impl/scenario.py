@@ -23,9 +23,10 @@ class Step(Enum):
     LEFT = 3
     
 class ResultOfStep(Enum):
-    OK = 0
-    ENCOUNTERED_LION = 1
-    STARVED = 2
+    LAND = 0
+    TREE = 1
+    ENCOUNTERED_LION = 2
+    STARVED = 3
 
 
 class Environment:
@@ -114,7 +115,7 @@ class Game:
         self.board = generate_board()
         self.player_position = place_player(self.board)
         #re-generate board if death would be unavoidable
-        while self.detect_unavoidable_death():
+        while self._detect_unavoidable_death():
             self.board = generate_board()
             self.player_position = place_player(self.board)
 
@@ -124,16 +125,16 @@ class Game:
     #get states of surrounding tiles
     def get_environment(self) -> Environment:
         return Environment(
-            self.get_tile_at_position(translate_step(self.player_position, Step.UP)),
-            self.get_tile_at_position(translate_step(self.player_position, Step.RIGHT)),
-            self.get_tile_at_position(translate_step(self.player_position, Step.DOWN)),
-            self.get_tile_at_position(translate_step(self.player_position, Step.LEFT))
+            self._get_tile_at_position(translate_step(self.player_position, Step.UP)),
+            self._get_tile_at_position(translate_step(self.player_position, Step.RIGHT)),
+            self._get_tile_at_position(translate_step(self.player_position, Step.DOWN)),
+            self._get_tile_at_position(translate_step(self.player_position, Step.LEFT))
         )
 
-    def get_tile_at_position(self, pos: Position) -> TileState:
+    def _get_tile_at_position(self, pos: Position) -> TileState:
         return self.board[pos.x][pos.y]
 
-    def detect_unavoidable_death(self) -> bool:
+    def _detect_unavoidable_death(self) -> bool:
         # simple surround
         en = self.get_environment()
         if en.up == TileState.LION and en.right == TileState.LION and en.down == TileState.LION and en.left == TileState.LION:
@@ -147,20 +148,19 @@ class Game:
         self.steps_left -= 1
 
         #check where we stepped?
-        if self.get_tile_at_position(new_position) == TileState.LAND:
+        if self._get_tile_at_position(new_position) == TileState.LAND:
             if self.steps_left > 0:
-                return ResultOfStep.OK
+                return ResultOfStep.LAND
             self.is_alive = False
             return ResultOfStep.STARVED
         
-        if self.get_tile_at_position(new_position) == TileState.TREE:
+        if self._get_tile_at_position(new_position) == TileState.TREE:
             self.steps_left += STEPS_GAINED_ON_FINDING_TREE
             #remove tree, place elsewhere
             self.board = tree_consumed(self.board, self.player_position)
-            
-            return ResultOfStep.OK
+            return ResultOfStep.TREE
         
-        if self.get_tile_at_position(new_position) == TileState.LION:
+        if self._get_tile_at_position(new_position) == TileState.LION:
             self.is_alive = False
             return ResultOfStep.ENCOUNTERED_LION
         

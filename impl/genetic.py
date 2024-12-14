@@ -6,7 +6,7 @@ from impl.scenario import Environment, Step, ResultOfStep, Game
 from random import choice, random
 
 NUMBER_OF_GENERATIONS = 30
-POPULATION = 2000
+POPULATION = 20000
 CROSSOVER_RATE = 0.7
 MUTATION_RATE = 0.05
 GENERATION_LIFETIME = 3
@@ -36,21 +36,21 @@ class Individual:
 
         if action is None:
             action = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
-            self.moving_functions.append((environment, action)) #what if we die?
+            self.moving_functions.append((environment, action))
 
         self.steps_taken += 1
         return action
 
 
 def init_generation():
-    return [Individual(_) for _ in range(POPULATION)]
+    return [Individual(g) for g in range(POPULATION)]
 
 
 class Genetic:
 
-    def __init__(self, scenario):
+    def __init__(self, ):
         self.generation = init_generation()
-        self.scenario = scenario
+        self.scenario = Game()
 
     def run(self):
         print("starting genetic")
@@ -65,34 +65,39 @@ class Genetic:
             for _p in range(GENERATION_LIFETIME):
                 #make step for every individual
                 # the nth individual is playing the nth scenario
+                
                 for i in range(len(self.generation)):
-                    if not self.generation[i].alive:
-
+                    individual: Individual = self.generation[i]
+                    sce: Game = scenarios[i]
+                    if not individual.alive:
                         continue
 
-                    env = scenarios[i].get_environment()
-                    move = self.generation[i].act(env)
-                    result = scenarios[i].make_step(move)
+                    env = sce.get_environment()
+                    move = individual.act(env)
+                    result = sce.make_step(move)
                     if result in (ResultOfStep.STARVED, ResultOfStep.ENCOUNTERED_LION):
-                        self.generation[i].alive = False
-                        del self.generation[i]  # temp? # TODO f-s indexing bc of for
-                        del scenarios[i]
+                        individual.alive = False
                         continue
+
                     #check record
-                    if self.generation[i].steps_taken > max_steps_taken:
-                        max_steps_taken = self.generation[i].steps_taken
+                    if individual.steps_taken > max_steps_taken and individual.alive:
+                        max_steps_taken = individual.steps_taken
                         max_steps_taken_index = i
-                    # if fully trained store elsewhere
-                    if len(self.generation[i].moving_functions) >= 81:
-                        s = self.generation[i]
-                        fully_trained.append(s)
-                        del self.generation[i]  # hopefully it doesn't get yeeted # TODO f-s indexing bc of for
-                        del scenarios[i]
+
+                    # if fully trained
+                    if len(individual.moving_functions) >= 81:
+                        s = individual
+                        fully_trained.append(s) #TODO fully trained, place elsewhere
+                #end for
 
             survived_num = len([_ for _ in self.generation if _.alive])
             if survived_num > 0:
                 print(f"{survived_num} individuals survived this ({gen+1}.) generation cycle")
                 print(f"maximum steps reached were {max_steps_taken} with  {len(self.generation[max_steps_taken_index].moving_functions)} moves learned")
+            else:
+                print("no survivors remain")
+                break
+
             #selection
             new_generation = self.selection()
 
@@ -103,8 +108,10 @@ class Genetic:
 
             self.generation = new_generation
 
-            #run new generation
+            #end for
 
+        #end for
+        #TODO save fully trained
         print(f"{len(fully_trained)} individuals were fully trained")
 
 
@@ -113,8 +120,9 @@ class Genetic:
         # TODO fitness check
         if IS_NAIVE:
             for i in range(len(self.generation)):
-                if self.generation[i].alive:
-                    new_generation.append(self.generation[i])
+                individual = self.generation[i]
+                if individual.alive:
+                    new_generation.append(individual)
         else:
             pass
         return new_generation
