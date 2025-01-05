@@ -15,10 +15,11 @@ from stable_baselines3 import PPO, A2C
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
-from impl.scenario import Step, Environment, Game, ResultOfStep
+from impl.scenario import Step, Environment, SimpleGame, ResultOfStep
 
 
 # TODO test other policies, smaller the better
+# TODO new game when the guy dies, were tracking reward after death rn I think
 
 REWARD_FOR_TREE = 30
 REWARD_FOR_LAND = 1
@@ -74,7 +75,7 @@ class CustomEnv(gym.Env):
     ) -> Tuple[ObsType, dict]:
         """Instantiates a new episode"""
         super().reset()
-        self.scenario = Game()
+        self.scenario = SimpleGame()
         info = self._get_info()
         return self._get_obs(), info
 
@@ -109,12 +110,12 @@ class Agent:
         if self.do_save:
             self._save_model(m)
 
-    def evaluate(self, model,  episodes: int):
+    def evaluate(self, episodes: int):
         #dont fully understand this one
         env = CustomEnv()
         env = DummyVecEnv([lambda: env]) #idk
 
-        evaluate_policy(model, env, n_eval_episodes=episodes, render=False)
+        evaluate_policy(self.model, env, n_eval_episodes=episodes, render=False)
 
     def test(self):
         env = CustomEnv()

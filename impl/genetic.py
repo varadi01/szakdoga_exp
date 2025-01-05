@@ -2,16 +2,17 @@
 # reproduction? crossover x% of the time
 # mutation? make them forget steps? change step randomly, crossover x% of the time
 # selection? based on fitness function, keep individual if their fitness is over a certain percentile of all individuals(top x%)
-from impl.scenario import Environment, Step, ResultOfStep, Game
-from random import choice, random
+import random
 
-NUMBER_OF_GENERATIONS = 30
-POPULATION = 20000
+from impl.scenario import Environment, Step, ResultOfStep, SimpleGame
+from random import choice
+import numpy as np
+
+POPULATION_SIZE = 20000
+
 CROSSOVER_RATE = 0.7
 MUTATION_RATE = 0.05
 GENERATION_LIFETIME = 3
-
-IS_NAIVE = True
 
 #TODO were making too many steps?
 
@@ -21,131 +22,171 @@ IS_NAIVE = True
 
 class Individual:
 
-    def __init__(self, generation: int):
+    def __init__(self, generation: int, moving_functions = [], environment: SimpleGame = SimpleGame):
         self.generation = generation
-        self.moving_functions = []
-        self.fully_trained = False
-        self.alive = True
+        self.moving_functions = moving_functions
+        self.fully_trained = False if len(moving_functions) < 80 else True #dunno if we need this
+        self.env = environment.__init__()
         self.steps_taken = 0
 
-    def act(self, environment: Environment) -> Step:
+    def act(self):
         action = None
+        current_environment = self.env
         for env, move in self.moving_functions:
-            if env == environment:
+            if env == current_environment:
                 action = move
 
         if action is None:
             action = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
-            self.moving_functions.append((environment, action))
+            self.moving_functions.append((current_environment, action))
+            if len(self.moving_functions) > 80: #idk
+                self.fully_trained = True
 
         self.steps_taken += 1
-        return action
+        self.env.make_step(action)
+
+class IndividualNaive:
+
+    def __init__(self, generation: int, moving_functions = [],  environment: SimpleGame = SimpleGame):
+        self.generation = generation
+        self.moving_functions = moving_functions
+        self.fully_trained = False if len(moving_functions) < 80 else True
+        self.env = environment.__init__()
+        self.steps_made = 0
+
+    def act(self):
+        action = None
+        current_environment = self.env
+        for env, move in self.moving_functions:
+            if env == current_environment:
+                action = move
+
+        if action is None:
+            action = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
+            self.moving_functions.append((current_environment, action))
+            if len(self.moving_functions) > 80: #idk
+                self.fully_trained = True
+        self.steps_made += 1
+        self.env.make_step(action)
 
 
-def init_generation():
-    return [Individual(g) for g in range(POPULATION)]
+#TODO scenario PER individual, rn new individuals are playing already live scenarios, they die immediately?
 
+class GeneticNaive:
+    #TODO check if child should inherit food amount
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE):
+        self.generation = [IndividualNaive(0) for _ in range(number_of_individuals)]
+
+    def train(self, cycles: int):
+        fully_trained_individuals = []
+        cycle = 1 #for logging
+        survivors = []
+        while cycle <= cycles:
+            print(f"cycle {cycle} started")
+            # advance every individual
+            for individual in [_ for _ in self.generation]: #??, necessary? to make copy i guess
+                individual.act()
+                if individual.env.is_alive:
+                    survivors.append(individual)
+                    #offspring
+                    if individual.steps_made % 3 == 0:
+                        new_ind = IndividualNaive(cycle, individual.moving_functions)
+                        survivors.append(new_ind)
+                    #fully trained
+                    if individual.fully_trained:
+                        fully_trained_individuals.append(individual)
+            self.generation = survivors
+            print(f"cycle: {cycle}, num of survivors: {len(survivors)}")
+
+            if len(survivors) == 0:
+                break
+            cycle += 1
+        #TODO store stuff
+        print("training finished")
 
 class Genetic:
 
-    def __init__(self, ):
-        self.generation = init_generation()
-        self.scenario = Game()
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE):
+        self.generation = [Individual(0) for _ in range(number_of_individuals)]
 
-    def run(self):
+    def train(self, cycles: int):
+        #TODO REDO
         print("starting genetic")
+        #stable population:
+        #each ind. takes a step, fitness check to eliminate unwanted ones
+        #selection to top up population?
+        #mutation
+        cycle = 1
         fully_trained = []
+        while cycle <= cycles:
+            print(f"cycle {cycle} started")
 
-        for gen in range(NUMBER_OF_GENERATIONS):
-            max_steps_taken = 0
-            max_steps_taken_index = 0
-            #run generation through
-            #scenarios = [self.scenario() for _ in range(POPULATION)]
-            scenarios = [Game() for _ in range(POPULATION)] #idk
-            for _p in range(GENERATION_LIFETIME):
-                #make step for every individual
-                # the nth individual is playing the nth scenario
-                
-                for i in range(len(self.generation)):
-                    individual: Individual = self.generation[i]
-                    sce: Game = scenarios[i]
-                    if not individual.alive:
-                        continue
+            for individual in self.generation:
+                individual.act()
+                if individual.fully_trained:
+                    fully_trained.append(individual)
 
-                    env = sce.get_environment()
-                    move = individual.act(env)
-                    result = sce.make_step(move)
-                    if result in (ResultOfStep.STARVED, ResultOfStep.ENCOUNTERED_LION):
-                        individual.alive = False
-                        continue
-
-                    #check record
-                    if individual.steps_taken > max_steps_taken and individual.alive:
-                        max_steps_taken = individual.steps_taken
-                        max_steps_taken_index = i
-
-                    # if fully trained
-                    if len(individual.moving_functions) >= 81:
-                        s = individual
-                        fully_trained.append(s) #TODO fully trained, place elsewhere
-                #end for
-
-            survived_num = len([_ for _ in self.generation if _.alive])
-            if survived_num > 0:
-                print(f"{survived_num} individuals survived this ({gen+1}.) generation cycle")
-                print(f"maximum steps reached were {max_steps_taken} with  {len(self.generation[max_steps_taken_index].moving_functions)} moves learned")
-            else:
-                print("no survivors remain")
-                break
-
-            #selection
-            new_generation = self.selection()
-
-            #reproduction
-            new_generation = self.reproduction(new_generation)
-
-            #mutation?
-
-            self.generation = new_generation
-
-            #end for
-
-        #end for
-        #TODO save fully trained
-        print(f"{len(fully_trained)} individuals were fully trained")
-
+            self.selection()
+            print(f"{len(self.generation)} individuals selected")
+            self.reproduction()
+            self.mutation()
+        #TODO stats
+        print("end genetic")
 
     def selection(self):
-        new_generation = []
-        # TODO fitness check
-        if IS_NAIVE:
-            for i in range(len(self.generation)):
-                individual = self.generation[i]
-                if individual.alive:
-                    new_generation.append(individual)
-        else:
-            pass
-        return new_generation
+        selected = []
+        for individual in self.generation:
+            if self.fitness(individual):
+                selected.append(individual)
+        self.generation = selected
 
     def mutation(self):
-        pass
+        #forget move? change action?
+        #going to go with forget
+        for individual in self.generation:
+            if random.random() < MUTATION_RATE:
+                #forget a move
+                individual.moving_functions.remove(choice(individual.moving_functions))
 
-    def reproduction(self, new_generation):
+    def reproduction(self):
+        # can 'newborns' be parents?
+        # I say yes, bc we get more varied children that way
+        while len(self.generation) < POPULATION_SIZE:
+            #pick parents
+            #create new moving function set
+            #create child
+            #add child to generation(population)
+            parent1 = choice(self.generation)
+            parent2 = choice(self.generation)
+            #really starting to wonder whether we need the eq
+            #TODO make moves a separate object
+            for move in parent1.moving_functions:
+                other_move = parent2.moving_functions.index() if move in parent2.moving_functions else None
+
+
+
         # while len(new_generation) < POPULATION:
         #     parent1 = choice(new_generation)
         #     parent2 = choice(new_generation)
         #
 
         #inherit all, forget some approach
+        new_generation = self.generation
         if IS_NAIVE:
-            while POPULATION > len(new_generation) > 0: #TODO training should stop if all individuals have died
-                i = choice(new_generation)
+            while POPULATION_SIZE > len(new_generation) > 0:
+                i: Individual = choice(new_generation)
                 #TODO forget
+                i.steps_taken = 0
+                i.food = 5 #TODO should inherit food amount?
+                i.alive = True
                 new_generation.append(i)
 
         # mutation?
-        return new_generation
+        self.generation = new_generation
 
-    def fitness(self, individual: Individual):
+    def fitness(self, individual: Individual) -> bool:
         #should we check learnt moves or just based on steps? OR just if its alive?
-        return 1 if individual.alive else 0
+        if not individual.env.is_alive:
+            return False
+        #TODO otherwise, check other parameters
+        return True

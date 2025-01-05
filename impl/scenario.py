@@ -5,11 +5,13 @@ import numpy as np
 #Keywords: Board, Environment, Position, Tile, Player, Step(Move), Death(Starvation, Lion)
 #   Number of steps(food?), Tree(food source), Lion,  
 
-TREE_RATIO = 0.3
-LION_RATIO = 0.3
+TREE_RATIO = 0.5
+LION_RATIO = 0.1
 
 INITIAL_NUMBER_OF_STEPS = 5
 STEPS_GAINED_ON_FINDING_TREE = 2
+
+CONTEXT_WINDOW_LENGTH = 2
 
 class TileState(Enum):
     LAND = 0
@@ -28,7 +30,6 @@ class ResultOfStep(Enum):
     ENCOUNTERED_LION = 2
     STARVED = 3
 
-
 class Environment:
     # neighbouring tiles' states
     def __init__(self, up: TileState, right: TileState, down: TileState, left: TileState):
@@ -42,8 +43,6 @@ class Environment:
             return True
         return False
 
-
-
 class Position:
     def __init__(self, x_coordinate, y_coordinate):
         self.x = x_coordinate
@@ -53,7 +52,6 @@ class Position:
         if self.x == other.x and self.y == other.y:
             return True
         return False
-
 
 def generate_board() -> list[list[TileState]]:
     gen = np.random.choice([0, 1, 2],
@@ -109,7 +107,7 @@ def tree_consumed(board, current_position: Position):
             board[current_position.x][current_position.y] = TileState.LAND
             return board
 
-class Game:
+class SimpleGame:
     # 10by10 list representing tiles
     def __init__(self, num_of_steps = INITIAL_NUMBER_OF_STEPS):
         self.board = generate_board()
@@ -121,8 +119,7 @@ class Game:
 
         self.steps_left = num_of_steps
         self.is_alive = True
-    
-    #get states of surrounding tiles
+
     def get_environment(self) -> Environment:
         return Environment(
             self._get_tile_at_position(translate_step(self.player_position, Step.UP)),
@@ -140,27 +137,45 @@ class Game:
         if en.up == TileState.LION and en.right == TileState.LION and en.down == TileState.LION and en.left == TileState.LION:
             return True
         return False
-        # waterfall method ##don't work, lions/trees can also wall in the waterfall itself
 
-    def make_step(self, step: Step) -> ResultOfStep: ## meh
+    def make_step(self, step: Step) -> ResultOfStep:
         new_position = translate_step(self.player_position, step)
         self.player_position = new_position
         self.steps_left -= 1
 
-        #check where we stepped?
+        #check where we stepped
         if self._get_tile_at_position(new_position) == TileState.LAND:
             if self.steps_left > 0:
                 return ResultOfStep.LAND
             self.is_alive = False
             return ResultOfStep.STARVED
-        
+
         if self._get_tile_at_position(new_position) == TileState.TREE:
             self.steps_left += STEPS_GAINED_ON_FINDING_TREE
             #remove tree, place elsewhere
             self.board = tree_consumed(self.board, self.player_position)
             return ResultOfStep.TREE
-        
+
         if self._get_tile_at_position(new_position) == TileState.LION:
             self.is_alive = False
             return ResultOfStep.ENCOUNTERED_LION
         
+
+class ContextBasedGame(SimpleGame):
+
+    def __init__(self, num_of_steps=INITIAL_NUMBER_OF_STEPS, context_window_length=CONTEXT_WINDOW_LENGTH):
+        super().__init__(num_of_steps)
+        self.context: list[tuple[Environment, Step]] = [] #TODO probs not okay, eq
+        self.window_size = context_window_length
+
+    def get_context(self):
+        return self.context
+
+    def make_step(self, step: Step) -> ResultOfStep:
+        prev = self.get_environment()
+        res = super().make_step(step)
+        #update context
+        self.context.insert(0, (prev, step)) #latest first
+        if len(self.context) > self.window_size:
+            self.context.pop()
+        return res

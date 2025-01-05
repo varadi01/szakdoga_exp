@@ -9,42 +9,42 @@
 #Data model
 #
 
+import tensorflow as tf
+import os
 
-from scenario import Game, ResultOfStep
+from impl.deepl import SmallClassDeepl
+from scenario import SimpleGame, ResultOfStep
 from stable_baselines3 import PPO, A2C
 
 from rule_based import RuleBasedPlayer
-from genetic import Genetic
+from genetic import Genetic, GeneticNaive
 from rl import Agent
 
-#TODO put into rule based
-def run(alg):
-    steps_taken = 0
-    while True:
-        result, step = alg.act()
-        steps_taken += 1
-
-        if result in (ResultOfStep.STARVED, ResultOfStep.ENCOUNTERED_LION): #might need tree
-            print(f"steps taken: {steps_taken}, cause of death: {result}")
-            break
-
-        if steps_taken > 500:
-            print(f"steps taken: {steps_taken}, survived over 500 steps")
-            break
-
-
+PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
+PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
 
 
 def main():
-    #run(RuleBasedPlayer(Game()))
 
-    g = Genetic()
-    g.run()
+
+    #run(RuleBasedPlayer(SimpleGame()))
+
+    # g = Genetic()
+    # g.run()
+
+    gn = GeneticNaive(1000)
+    gn.train(250)
 
     #TODO try different algs, tweak learning rate, rewards, explore/exploit?
+
     # agent = Agent(A2C, "test", False)
-    # agent.learn(10000)
+    # agent.learn(1000)
+    # #agent.evaluate(10)
     # agent.test()
+
+
+    # da = SmallClassDeepl()
+    # da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
     pass
 
 

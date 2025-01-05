@@ -1,17 +1,17 @@
-from scenario import Game, Step, Environment, TileState, ResultOfStep
+from impl.scenario import SimpleGame, Step, Environment, TileState, ResultOfStep
 from random import choice
 
-#TODO apparently we're stepping on lions
-
 class RuleBasedPlayer:
-    #gets instantiated and called by runner
-    def __init__(self, game: Game):
+    def __init__(self, game: SimpleGame):
         self.game = game
 
-    def act(self) -> tuple[ResultOfStep, Step]:
+    def act(self, env: Environment = None) -> Step:
+        """env only used for ease of data generation"""
         #get env
-        environment = self.game.get_environment()
-        print(f"up:{environment.up}, right:{environment.right}, down:{environment.down}, left:{environment.left}")
+        if env is None:
+            environment = self.game.get_environment()
+        else:
+            environment = env
         #decide step
         trees = []
         land = []
@@ -38,9 +38,24 @@ class RuleBasedPlayer:
         if len(trees) > 0:
             c =choice(trees)
             print(f"step {c}")
-            return self.game.make_step(c), c
+            return c
         if len(land) > 0: #should always be true?
             cl = choice(land)
             print(f"step {cl}")
-            return self.game.make_step(cl), cl
+            return cl
         return choice((Step.RIGHT, Step.LEFT, Step.UP, Step.DOWN))
+
+    def eval(self):
+        #only runs once, make it a proper evaluation
+        steps_taken = 0
+        while True:
+            result, step = self.act()
+            steps_taken += 1
+
+            if result in (ResultOfStep.STARVED, ResultOfStep.ENCOUNTERED_LION):  # might need tree
+                print(f"steps taken: {steps_taken}, cause of death: {result}")
+                break
+
+            if steps_taken > 500:
+                print(f"steps taken: {steps_taken}, survived over 500 steps")
+                break
