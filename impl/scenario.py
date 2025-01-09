@@ -39,9 +39,25 @@ class Environment:
         self.left = left
 
     def __eq__(self, other):
-        if self.right == other.right and  self.left == other.left and  self.up == other.up and  self.down == other.down:
-            return True
-        return False
+        return (self.right == other.right
+                and self.left == other.left
+                and self.up == other.up
+                and self.down == other.down)
+
+class PieceOfContext:
+
+    def __init__(self, environment: Environment, step_taken: Step):
+        self.environment = environment
+        self.step_taken = step_taken
+
+    def __eq__(self, other):
+        return self.environment == other.environment and self.step_taken == other.step_taken
+
+class ContextHolder:
+
+    def __init__(self, context: list[PieceOfContext] = []):
+        self.context = context
+
 
 class Position:
     def __init__(self, x_coordinate, y_coordinate):
