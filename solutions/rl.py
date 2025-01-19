@@ -3,10 +3,13 @@
 # rewards: land - ,tree - ,lion -
 # action-space, observation-space both discrete(4)
 
+##https://spinningup.openai.com/en/latest/spinningup/rl_intro3.html
+
 from typing import Tuple, Optional, Union, List
 import os
 
 import gym
+
 from gym.core import ActType, ObsType, RenderFrame
 
 import numpy as np
@@ -18,12 +21,12 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from impl.scenario import Step, Environment, SimpleGame, ResultOfStep
 
 
-# TODO test other policies, smaller the better
-# TODO new game when the guy dies, were tracking reward after death rn I think
+#TODO make DQN work aswell
 
 REWARD_FOR_TREE = 30
 REWARD_FOR_LAND = 1
 REWARD_FOR_LION = -100
+REWARD_FOR_STARVED = -10 #prolly dont need this?
 
 class CustomEnv(gym.Env):
     """Custom environment of the game for agents to operate on"""
@@ -58,7 +61,8 @@ class CustomEnv(gym.Env):
             case ResultOfStep.TREE:
                 reward = REWARD_FOR_TREE
             case ResultOfStep.STARVED:
-                terminated = True #TODO does reward matter?
+                reward = REWARD_FOR_STARVED
+                terminated = True
             case ResultOfStep.ENCOUNTERED_LION:
                 reward = REWARD_FOR_LION
                 terminated = True
@@ -99,21 +103,22 @@ class Agent:
         self.model = None
 
     def learn(self, timesteps: int):
+        print("started learn")
         env = CustomEnv()
-        env = DummyVecEnv([lambda: env]) #idk
+        env = DummyVecEnv([lambda: env]) #only vectorize for A2C
         m = self.alg('MlpPolicy', env, verbose = 1) #check policy
-
         m.learn(total_timesteps = timesteps)
-
         self.model = m
+        print("ended learn")
 
         if self.do_save:
+            print("saving model")
             self._save_model(m)
 
     def evaluate(self, episodes: int):
         #dont fully understand this one
         env = CustomEnv()
-        env = DummyVecEnv([lambda: env]) #idk
+        env = DummyVecEnv([lambda: env]) #only vectorize for A2C
 
         evaluate_policy(self.model, env, n_eval_episodes=episodes, render=False)
 

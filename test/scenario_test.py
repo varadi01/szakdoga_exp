@@ -1,4 +1,4 @@
-from impl.scenario import translate_step, Position, Step
+from impl.scenario import SimpleGame, Position, Step
 
 
 def test_translate_step():

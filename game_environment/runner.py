@@ -9,16 +9,9 @@
 #Data model
 #
 
-import tensorflow as tf
 import os
 
 from impl.deepl import SmallClassDeepl
-from scenario import SimpleGame, ResultOfStep
-from stable_baselines3 import PPO, A2C
-
-from rule_based import RuleBasedPlayer
-from genetic import Genetic, GeneticNaive
-from rl import Agent
 
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
@@ -32,19 +25,21 @@ def main():
     # g = Genetic()
     # g.run()
 
-    gn = GeneticNaive(1000)
-    gn.train(250)
+    # gn = GeneticNaive(1000)
+    # gn.train(250)
 
     #TODO try different algs, tweak learning rate, rewards, explore/exploit?
 
     # agent = Agent(A2C, "test", False)
     # agent.learn(1000)
-    # #agent.evaluate(10)
+    # agent.evaluate(10)
     # agent.test()
 
 
-    # da = SmallClassDeepl()
-    # da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
+    da = SmallClassDeepl()
+    # da.describe()
+    da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
+    da.evaluate(PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET)
     pass
 
 

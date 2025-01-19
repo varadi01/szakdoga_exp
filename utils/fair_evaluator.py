@@ -1,0 +1,1 @@
+#gets set of scenarios, and evaluates solutions on each

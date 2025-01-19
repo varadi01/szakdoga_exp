@@ -25,11 +25,10 @@ from keras._tf_keras.keras.metrics import categorical_crossentropy
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import shuffle
 
-
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
 
-def _get_dataset_from_source(source) -> tuple[list[Environment], list[Step]]:
+def _get_dataset_from_source(source):
     samples = []
     labels = []
     f = open(source, "+r")
@@ -37,26 +36,28 @@ def _get_dataset_from_source(source) -> tuple[list[Environment], list[Step]]:
     for line in lines:
         env, action = line.split(';')
         tile_states = env.split(',')
-        samples.append(Environment(
-            TileState(int(tile_states[0])),
-            TileState(int(tile_states[1])),
-            TileState(int(tile_states[2])),
-            TileState(int(tile_states[3]))
-        ))
-        labels.append(Step(int(action)))
-
+        samples.append([
+            int(tile_states[0]),
+            int(tile_states[1]),
+            int(tile_states[2]),
+            int(tile_states[3])
+        ])
+        label = np.zeros(4,)
+        label[int(action)] = 1
+        labels.append(label)
+    f.close()
     return samples, labels
 
 
 class SmallClassDeepl:
     """Model trained on small data, using traditional classification"""
 
-    def __init__(self, optimizer = Adam, learning_rate = 0.05, loss = 'categorical_crossentropy', metrics = ['accuracy']):
+    def __init__(self, optimizer = Adam, learning_rate = 0.02, loss = 'categorical_crossentropy', metrics = ['accuracy']):
         #model
         self.model = Sequential([ #TODO
             Input(shape=(4,)),
-            Dense(units=4, activation='relu'),
-            Dense(units=16, activation='relu'),
+            Dense(units=12, activation='relu'),
+            Dense(units=48, activation='relu'),
             Dense(units=4, activation='softmax')
         ])
         self.model.compile(
@@ -64,14 +65,16 @@ class SmallClassDeepl:
             loss=loss, metrics=metrics)
         print("compiled model")
 
-    def learn(self, path, batch:int = 10, epochs: int = 30, validation_split = 0.1):
+    def learn(self, path, batch:int = 100, epochs: int = 50, validation_split = 0.05):
         samples, labels = _get_dataset_from_source(path)
         train_labels = np.array(labels)
         train_samples = np.array(samples)
         train_labels, train_samples = shuffle(train_labels, train_samples)
 
+        print(f"{train_samples[0]}, {train_labels[0]}" )
+
         # scaler = MinMaxScaler(feature_range=(0,1))
-        # scaled_train_samples = scaler.fit_transform(train_samples.re) #TODOmight need scaling?
+        # scaled_train_samples = scaler.fit_transform(train_samples) #TODOmight need scaling?
 
         self.model.fit(x=train_samples, y=train_labels,
                        validation_split=validation_split,
@@ -96,9 +99,9 @@ class SmallClassDeepl:
         #temp
         hits = 0
         for i in range(len(rounded_predictions)):
-            if rounded_predictions[i] == eval_labels[i]:
+            if rounded_predictions[i] == np.argmax(eval_labels[i]):
                 hits += 1
-        print(f"chose correctly {hits/len(eval_labels)}% of the time")
+        print(f"chose correctly {hits/len(eval_labels)*100:.2f}% of the time")
         #TODO stats
 
 

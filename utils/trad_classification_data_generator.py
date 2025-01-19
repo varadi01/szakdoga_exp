@@ -22,4 +22,4 @@ def generate_data(filename: str = "dataset", data_length: int = 1000):
     f.close()
 
 
-generate_data("ge_dataset", 500)
+generate_data("gt_dataset", 2000)
