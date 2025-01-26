@@ -3,8 +3,11 @@
 # mutation? make them forget steps? change step randomly, crossover x% of the time
 # selection? based on fitness function, keep individual if their fitness is over a certain percentile of all individuals(top x%)
 
-from impl.scenario import Environment, Step, SimpleGame, ContextHolder, ContextBasedGame, PieceOfContext
+from game_environment.scenario import Environment, Step, SimpleGame, ContextHolder, ContextBasedGame
 from random import choice, random
+from utils.db_context import get_instance
+from utils.db_entities import GeneticIndividualModel
+from utils.genetic_action_utils import ActionHolder, Action
 
 POPULATION_SIZE = 20000
 
@@ -16,54 +19,6 @@ MUTATION_RATE = 0.05
 # two approaches I reckon
 # First: offspring inherits all moves, forget some, missing spots are filled with completely new individuals
 # Second: surviving individuals are shuffled to create offspring, crossover, missing spots are filled via randomly selecting moves from parent generation?
-
-class Action:
-
-    def __init__(self, env: Environment, step: Step):
-        self.env = env
-        self.step = step
-
-    def env_eq(self, other):
-        return self.env == other.env
-
-    def __eq__(self, other):
-        return self.env == other.env and self.step == other.step
-
-
-class ActionHolder:
-
-    def __init__(self, actions: list[Action] = None):
-        if actions is None:
-            actions = []
-        self.actions = actions
-
-    def add_action(self, action: Action):
-        if self.is_env_known(action.env):
-            return
-        self.actions.append(action)
-
-    def remove_action(self, action):
-        try:
-            self.actions.remove(action)
-        except ValueError:
-            raise Exception("tried to delete non-existent action")
-
-    def is_env_known(self, env: Environment) -> bool:
-        known = False
-        for act in self.actions:
-            if act.env == env:
-                known = True
-        return known
-
-    def get_action_for_env(self, env: Environment) -> Action:
-        action = None
-        for act in self.actions:
-            if act.env == env:
-                action = act
-        if action is not None:
-            return action
-        raise Exception("action not known")
-
 
 class Individual:
 
@@ -89,26 +44,26 @@ class Individual:
 
 class IndividualNaive:
     #todo refactor known_action?, easier to read maybe
-    def __init__(self, generation: int, moving_functions = None, scenario: SimpleGame = SimpleGame):
-        if moving_functions is None:
-            moving_functions = []
+    def __init__(self, generation: int, seq_num: int, known_actions: ActionHolder = ActionHolder(), parent_id: str = None, scenario = SimpleGame):
         self.generation = generation
-        self.moving_functions = moving_functions
-        self.fully_trained = False if len(moving_functions) < 80 else True
-        self.scenario = scenario.__init__()
+        self.id = f"{self.generation}{seq_num}"
+        self.parent_id = parent_id
+        self.known_actions = known_actions
+        self.fully_trained = False if len(known_actions.actions) < 80 else True
+        self.scenario = scenario()
         self.steps_made = 0
 
     def act(self):
         step_to_take = None
         current_environment = self.scenario.get_environment()
-        for act in self.moving_functions:
+        for act in self.known_actions.actions:
             if act.env == current_environment:
                 step_to_take = act.step
 
         if step_to_take is None:
             step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
-            self.moving_functions.append(Action(current_environment, step_to_take))
-            if len(self.moving_functions) > 80: #idk
+            self.known_actions.add_action(Action(current_environment, step_to_take))
+            if len(self.known_actions.actions) > 80: #idk
                 self.fully_trained = True
         self.steps_made += 1
         self.scenario.make_step(step_to_take)
@@ -116,8 +71,11 @@ class IndividualNaive:
 
 class GeneticNaive:
     #TODO check if child should inherit food amount
-    def __init__(self, number_of_individuals: int = POPULATION_SIZE):
-        self.generation = [IndividualNaive(0) for _ in range(number_of_individuals)]
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE, existing_generation = None):
+        if existing_generation is not None:
+            self.generation = existing_generation
+        else:
+            self.generation = [IndividualNaive(0, _) for _ in range(number_of_individuals)]
 
     def train(self, cycles: int):
         fully_trained_individuals = []
@@ -128,11 +86,13 @@ class GeneticNaive:
             # advance every individual
             for individual in [_ for _ in self.generation]: #??, necessary? to make copy I guess
                 individual.act()
-                if individual.env.is_alive:
+                if individual.scenario.is_alive:
                     survivors.append(individual)
                     #offspring
                     if individual.steps_made % 3 == 0:
-                        new_ind = IndividualNaive(cycle, individual.moving_functions)
+                        new_ind = IndividualNaive(cycle, len(survivors),
+                                                  known_actions=individual.known_actions,
+                                                  parent_id=individual.id) #todo we dont configure what it plays
                         survivors.append(new_ind)
                     #fully trained
                     if individual.fully_trained:
@@ -143,8 +103,38 @@ class GeneticNaive:
             if len(survivors) == 0:
                 break
             cycle += 1
-        #TODO store stuff
         print("training finished")
+        self.save_individuals()
+
+    def save_individuals(self):
+        db = get_instance("genetic_naive_abundant", 'g')
+        individuals_to_save = self.generation
+        models = []
+        for ind in individuals_to_save:
+            models.append(
+                GeneticIndividualModel(
+                    ind.id,
+                    ind.known_actions,
+                    "naive0402",
+                    ind.parent_id
+                )
+            )
+        db.insert_many(models)
+
+def models_to_individuals(models: list[GeneticIndividualModel]):
+    inds = []
+    for i in range(len(models)):
+        inds.append(IndividualNaive(
+            0, #todo id
+            i,
+            ActionHolder(models[i].action_set),
+            models[i].parent_id,
+            models[i].other_parent_id
+        )
+    )
+    return inds
+
+
 
 class Genetic:
 
@@ -216,7 +206,7 @@ class Genetic:
         #TODO otherwise, check other parameters
         return True
 
-
+#todo deprecated most likely
 class ActionWithContext:
 
     def __init__(self, env: Environment, step: Step, context: ContextHolder):

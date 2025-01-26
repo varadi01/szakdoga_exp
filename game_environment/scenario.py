@@ -17,8 +17,8 @@ import numpy as np
 
 #IDEA: actor can decide to wait?
 
-TREE_RATIO = 0.5
-LION_RATIO = 0.1
+TREE_RATIO = 0.4
+LION_RATIO = 0.2
 
 INITIAL_NUMBER_OF_STEPS = 5
 STEPS_GAINED_ON_FINDING_TREE = 2

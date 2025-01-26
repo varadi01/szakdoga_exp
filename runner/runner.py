@@ -11,7 +11,13 @@
 
 import os
 
-from impl.deepl import SmallClassDeepl
+from solutions.deepl import SmallClassDeepl
+
+from solutions.rule_based import RuleBasedPlayer
+
+from solutions.genetic import GeneticNaive, Genetic
+
+from utils.db_context import get_instance, RecordSerializer
 
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
@@ -19,14 +25,21 @@ PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_data
 
 def main():
 
+    # for _ in range(10):
+    #     RuleBasedPlayer().eval()
 
-    #run(RuleBasedPlayer(SimpleGame()))
+    # db = get_instance("rule_based_records")
+    # records = db.get_all()
+    # serializer = RecordSerializer()
+    # for doc in records:
+    #     print(serializer.deserialize(doc))
+
 
     # g = Genetic()
     # g.run()
 
     # gn = GeneticNaive(1000)
-    # gn.train(250)
+    # gn.train(50)
 
     #TODO try different algs, tweak learning rate, rewards, explore/exploit?
 
@@ -36,10 +49,10 @@ def main():
     # agent.test()
 
 
-    da = SmallClassDeepl()
-    # da.describe()
-    da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
-    da.evaluate(PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET)
+    # da = SmallClassDeepl()
+    # # da.describe()
+    # da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
+    # da.evaluate(PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET)
     pass
 
 

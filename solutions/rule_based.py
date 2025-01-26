@@ -1,9 +1,11 @@
-from impl.scenario import SimpleGame, Step, Environment, TileState, ResultOfStep
+from game_environment.scenario import SimpleGame, Step, Environment, TileState, ResultOfStep
 from random import choice
+from utils.db_context import get_instance
+from utils.db_entities import RecordModel
 
 class RuleBasedPlayer:
-    def __init__(self, game: SimpleGame):
-        self.game = game
+    def __init__(self, game = SimpleGame):
+        self.game = game()
 
     def act(self, env: Environment = None) -> Step:
         """env only used for ease of data generation"""
@@ -37,25 +39,48 @@ class RuleBasedPlayer:
         #make step
         if len(trees) > 0:
             c =choice(trees)
-            print(f"step {c}")
             return c
-        if len(land) > 0: #should always be true?
+        if len(land) > 0:
             cl = choice(land)
-            print(f"step {cl}")
             return cl
         return choice((Step.RIGHT, Step.LEFT, Step.UP, Step.DOWN))
 
     def eval(self):
         #only runs once, make it a proper evaluation
         steps_taken = 0
+        game_result = None
         while True:
-            result, step = self.act()
+            step = self.act()
             steps_taken += 1
+            result = self.game.make_step(step)
 
-            if result in (ResultOfStep.STARVED, ResultOfStep.ENCOUNTERED_LION):  # might need tree
+            if result == ResultOfStep.STARVED:  # might need tree
                 print(f"steps taken: {steps_taken}, cause of death: {result}")
+                game_result = RecordModel.GameResult.STARVED
+                break
+
+            if result == ResultOfStep.ENCOUNTERED_LION:  # might need tree
+                print(f"steps taken: {steps_taken}, cause of death: {result}")
+                game_result = RecordModel.GameResult.LION
                 break
 
             if steps_taken > 500:
                 print(f"steps taken: {steps_taken}, survived over 500 steps")
+                game_result = RecordModel.GameResult.COMPLETE
                 break
+
+        self.save_record(steps_taken, game_result)
+
+
+    def save_record(self, steps, result):
+        db = get_instance("rule_based_records", 'r')
+        record = RecordModel(
+            "rule_based",
+            result,
+            steps,
+            self.game.steps_left,
+            "simple",
+            RecordModel.make_parameter_string(0.4,0.3) #todo change me
+        )
+        db.insert(record)
+

@@ -16,7 +16,7 @@
 import os
 import numpy as np
 
-from impl.scenario import Environment, TileState, Step
+from game_environment.scenario import Environment, TileState, Step
 import tensorflow as tf
 from keras._tf_keras.keras.optimizers import Adam
 from keras._tf_keras.keras.models import Sequential
