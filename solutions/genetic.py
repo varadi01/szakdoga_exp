@@ -3,7 +3,8 @@
 # mutation? make them forget steps? change step randomly, crossover x% of the time
 # selection? based on fitness function, keep individual if their fitness is over a certain percentile of all individuals(top x%)
 
-from game_environment.scenario import Environment, Step, SimpleGame, ContextHolder, ContextBasedGame
+from game_environment.scenario import SimpleGame, ContextHolder, ContextBasedGame
+from utils.scenario_utils import Environment, Step
 from random import choice, random
 from utils.db_context import get_instance
 from utils.db_entities import GeneticIndividualModel
@@ -77,7 +78,8 @@ class GeneticNaive:
         else:
             self.generation = [IndividualNaive(0, _) for _ in range(number_of_individuals)]
 
-    def train(self, cycles: int):
+    def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
+        #TODO do_save property, save location
         fully_trained_individuals = []
         cycle = 1 #for logging
         while cycle <= cycles:
@@ -104,10 +106,11 @@ class GeneticNaive:
                 break
             cycle += 1
         print("training finished")
-        self.save_individuals()
+        if do_save:
+            self.save_individuals(target_collection)
 
-    def save_individuals(self):
-        db = get_instance("genetic_naive_abundant", 'g')
+    def save_individuals(self, col):
+        db = get_instance(col, 'g')
         individuals_to_save = self.generation
         models = []
         for ind in individuals_to_save:

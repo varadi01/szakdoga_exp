@@ -1,6 +1,6 @@
 from random import randint
-from enum import Enum
 import numpy as np
+from utils.scenario_utils import TileState, Step, ResultOfStep, Position, Environment
 
 #Keywords: Board, Environment, Position, Tile, Player, Step(Move), Death(Starvation, Lion)
 #   Number of steps(food?), Tree(food source), Lion,
@@ -25,47 +25,8 @@ STEPS_GAINED_ON_FINDING_TREE = 2
 
 CONTEXT_WINDOW_LENGTH = 2
 
-class TileState(Enum):
-    LAND = 0
-    TREE = 1
-    LION = 2
-    
-class Step(Enum):
-    UP = 0
-    RIGHT = 1
-    DOWN = 2
-    LEFT = 3
-    
-class ResultOfStep(Enum):
-    LAND = 0
-    TREE = 1
-    ENCOUNTERED_LION = 2
-    STARVED = 3
 
-
-class Environment:
-    # neighbouring tiles' states
-    def __init__(self, up: TileState, right: TileState, down: TileState, left: TileState):
-        self.up = up
-        self.right = right
-        self.down = down
-        self.left = left
-
-    def __eq__(self, other):
-        return (self.right == other.right
-                and self.left == other.left
-                and self.up == other.up
-                and self.down == other.down)
-
-class Position:
-    def __init__(self, x_coordinate, y_coordinate):
-        self.x = x_coordinate
-        self.y = y_coordinate
-
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y
-
-
+#deprecated
 class PieceOfContext:
 
     def __init__(self, environment: Environment, step_taken: Step):
@@ -110,7 +71,7 @@ class ContextHolder:
             if a_context[i] != other_context[i]:
                 return False
         return True
-
+#end deprecated
 
 class SimpleGame:
     # 10by10 list representing tiles
@@ -223,6 +184,7 @@ class SimpleGame:
             if board[x][y] not in [TileState.LION, TileState.TREE]:
                 return Position(x, y)
 
+#deprecated
 class ContextBasedGame(SimpleGame):
 
     def __init__(self, num_of_steps=INITIAL_NUMBER_OF_STEPS, context_window_length=CONTEXT_WINDOW_LENGTH):

@@ -18,7 +18,8 @@ from stable_baselines3 import PPO, A2C
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
-from impl.scenario import Step, Environment, SimpleGame, ResultOfStep
+from utils.scenario_utils import Step, Environment, ResultOfStep
+from game_environment.scenario import SimpleGame
 
 
 #TODO make DQN work aswell
@@ -40,7 +41,7 @@ class CustomEnv(gym.Env):
     def _get_obs(self):
         env = self.scenario.get_environment()
         #TODO test
-        return np.array([env.up.value, env.right.value, env.down.value, env.left.value])
+        return np.array(env.get_as_list())
 
     def _take_action(self, action) -> ResultOfStep:
         step = Step(action)

@@ -19,8 +19,7 @@ from solutions.genetic import GeneticNaive, Genetic
 
 from utils.db_context import get_instance, RecordSerializer
 
-PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
-PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
+
 
 
 def main():
@@ -34,13 +33,6 @@ def main():
     # for doc in records:
     #     print(serializer.deserialize(doc))
 
-
-    # g = Genetic()
-    # g.run()
-
-    # gn = GeneticNaive(1000)
-    # gn.train(50)
-
     #TODO try different algs, tweak learning rate, rewards, explore/exploit?
 
     # agent = Agent(A2C, "test", False)
@@ -49,10 +41,7 @@ def main():
     # agent.test()
 
 
-    # da = SmallClassDeepl()
-    # # da.describe()
-    # da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
-    # da.evaluate(PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET)
+
     pass
 
 

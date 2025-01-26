@@ -16,7 +16,6 @@
 import os
 import numpy as np
 
-from game_environment.scenario import Environment, TileState, Step
 import tensorflow as tf
 from keras._tf_keras.keras.optimizers import Adam
 from keras._tf_keras.keras.models import Sequential
@@ -25,8 +24,12 @@ from keras._tf_keras.keras.metrics import categorical_crossentropy
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import shuffle
 
+from game_environment.scenario import SimpleGame
+
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
+
+#TODO save/load
 
 def _get_dataset_from_source(source):
     samples = []
@@ -56,8 +59,8 @@ class SmallClassDeepl:
         #model
         self.model = Sequential([ #TODO
             Input(shape=(4,)),
-            Dense(units=12, activation='relu'),
-            Dense(units=48, activation='relu'),
+            Dense(units=64, activation='relu'),
+            Dense(units=64, activation='relu'),
             Dense(units=4, activation='softmax')
         ])
         self.model.compile(
@@ -105,13 +108,15 @@ class SmallClassDeepl:
         #TODO stats
 
 
-    def test(self):
-        #TODO play ONE game
-        pass
+    def test(self, game: SimpleGame):
+        #todo
+        while game.is_alive:
+            env = game.get_environment()
+            self.model.predict
 
     def describe(self):
         print(self.model.summary())
 
 
 SmallClassDeepl(Adam, 0.001, 'categorical_crossentropy', ['accuracy'])
-# 2. Big model: bigger dataset
+# 2. Big model: bigger dataset #nah
