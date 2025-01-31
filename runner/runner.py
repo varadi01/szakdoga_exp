@@ -33,7 +33,6 @@ def main():
     # for doc in records:
     #     print(serializer.deserialize(doc))
 
-    #TODO try different algs, tweak learning rate, rewards, explore/exploit?
 
     # agent = Agent(A2C, "test", False)
     # agent.learn(1000)

@@ -1,6 +1,5 @@
 def main():
     #"genetic_naive_abundant"
-    #todo make played env parameterizable
     # g = Genetic()
     # g.run()
 

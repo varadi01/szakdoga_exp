@@ -24,7 +24,7 @@ class RecordModel:
 
 class ScenarioModel:
 
-    def __init__(self, board, spawn: tuple[int, int], parameter_string, env_type):
+    def __init__(self, board, spawn, parameter_string, env_type):
         self.board = board
         self.spawn = spawn
         self.parameter_string = parameter_string

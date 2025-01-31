@@ -6,14 +6,16 @@
 # further directions:
 #    - different data entry for each correct action for a given env #is it healthy that we have multiple outputs for the same input?
 #    - multi label classification
-# TODO what kind of model do we want?
-# TODO weights of different actions?, stepping away from a lion
+# DEP what kind of model do we want?
+# DEP weights of different actions?, stepping away from a lion
 #  is almost always better than stepping towards,
 #  as we limit our freedom of movement
 
 # 1. Small model: small dataset,
 
 import os
+
+import keras._tf_keras.keras.models
 import numpy as np
 
 import tensorflow as tf
@@ -25,11 +27,12 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import shuffle
 
 from game_environment.scenario import SimpleGame
+from utils.scenario_utils import Step
 
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
 
-#TODO save/load
+#TODO try normalizing
 
 def _get_dataset_from_source(source):
     samples = []
@@ -51,13 +54,20 @@ def _get_dataset_from_source(source):
     f.close()
     return samples, labels
 
+def save_model(model, name):
+    path = os.path.join('deepl', 'models', name)
+    model.save(path)
+
+def load_model(name):
+    path = os.path.join('deepl', 'models', name)
+    return keras._tf_keras.keras.models.load_model(path)
 
 class SmallClassDeepl:
     """Model trained on small data, using traditional classification"""
 
     def __init__(self, optimizer = Adam, learning_rate = 0.02, loss = 'categorical_crossentropy', metrics = ['accuracy']):
         #model
-        self.model = Sequential([ #TODO
+        self.model = Sequential([
             Input(shape=(4,)),
             Dense(units=64, activation='relu'),
             Dense(units=64, activation='relu'),
@@ -77,7 +87,7 @@ class SmallClassDeepl:
         print(f"{train_samples[0]}, {train_labels[0]}" )
 
         # scaler = MinMaxScaler(feature_range=(0,1))
-        # scaled_train_samples = scaler.fit_transform(train_samples) #TODOmight need scaling?
+        # scaled_train_samples = scaler.fit_transform(train_samples) #TODO might need scaling?
 
         self.model.fit(x=train_samples, y=train_labels,
                        validation_split=validation_split,
@@ -109,10 +119,17 @@ class SmallClassDeepl:
 
 
     def test(self, game: SimpleGame):
-        #todo
+        steps = 0
         while game.is_alive:
             env = game.get_environment()
-            self.model.predict
+            prediction = self.model.predict(np.array(env.get_as_list())[None,...])
+            print(prediction)
+            step_int = np.argmax(prediction)
+            print(Step(step_int))
+            game.make_step(Step(step_int))
+            steps += 1
+        print(f" taken:{steps} food:{game.steps_left}")
+
 
     def describe(self):
         print(self.model.summary())

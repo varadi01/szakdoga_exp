@@ -15,71 +15,54 @@ POPULATION_SIZE = 20000
 CROSSOVER_RATE = 0.7
 MUTATION_RATE = 0.05
 
-#TODO meld together individual
 
 # two approaches I reckon
 # First: offspring inherits all moves, forget some, missing spots are filled with completely new individuals
 # Second: surviving individuals are shuffled to create offspring, crossover, missing spots are filled via randomly selecting moves from parent generation?
 
+
 class Individual:
 
-    def __init__(self, generation: int, known_actions: ActionHolder = ActionHolder(), scenario: SimpleGame = SimpleGame):
+    def __init__(self, generation: int, seq_num: int,
+                 known_actions: ActionHolder = ActionHolder(),
+                 parent_id: str = None, other_parent_id: str = None,
+                 scenario = None):
         self.generation = generation
+        self.id = f"{self.generation},{seq_num}"
+        self.parent_id = parent_id
+        self.other_parent_id = other_parent_id
         self.known_actions = known_actions
-        self.fully_trained = False if len(known_actions.actions) < 80 else True #dunno if we need this
-        self.scenario = scenario.__init__()
-        self.steps_taken = 0
+        if scenario is not None:
+            self.scenario = scenario
+        else:
+            self.scenario = SimpleGame()
+        self.steps_made = 0
 
     def act(self):
-        #step_to_take = None  #maybe remove?
         current_environment = self.scenario.get_environment()
         if self.known_actions.is_env_known(current_environment):
             step_to_take = self.known_actions.get_action_for_env(current_environment)
         else:
             step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
             self.known_actions.add_action(Action(current_environment, step_to_take))
-            if len(self.known_actions.actions) > 80: #idk
-                self.fully_trained = True
-        self.steps_taken += 1
-        self.scenario.make_step(step_to_take)
-
-class IndividualNaive:
-    #todo refactor known_action?, easier to read maybe
-    def __init__(self, generation: int, seq_num: int, known_actions: ActionHolder = ActionHolder(), parent_id: str = None, scenario = SimpleGame):
-        self.generation = generation
-        self.id = f"{self.generation}{seq_num}"
-        self.parent_id = parent_id
-        self.known_actions = known_actions
-        self.fully_trained = False if len(known_actions.actions) < 80 else True
-        self.scenario = scenario()
-        self.steps_made = 0
-
-    def act(self):
-        step_to_take = None
-        current_environment = self.scenario.get_environment()
-        for act in self.known_actions.actions:
-            if act.env == current_environment:
-                step_to_take = act.step
-
-        if step_to_take is None:
-            step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
-            self.known_actions.add_action(Action(current_environment, step_to_take))
-            if len(self.known_actions.actions) > 80: #idk
-                self.fully_trained = True
         self.steps_made += 1
         self.scenario.make_step(step_to_take)
+
+    def set_scenario(self, game):
+        self.scenario = game
+        self.steps_made = 0
 
 
 class GeneticNaive:
     #TODO check if child should inherit food amount
-    def __init__(self, number_of_individuals: int = POPULATION_SIZE, existing_generation = None):
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE, existing_generation = None, given_scenario = None):
         if existing_generation is not None:
             self.generation = existing_generation
         else:
-            self.generation = [IndividualNaive(0, _) for _ in range(number_of_individuals)]
+            self.generation = [Individual(0, _) for _ in range(number_of_individuals)]
+        self.given_scenario = given_scenario
 
     def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
-        #TODO do_save property, save location
         fully_trained_individuals = []
         cycle = 1 #for logging
         while cycle <= cycles:
@@ -92,13 +75,19 @@ class GeneticNaive:
                     survivors.append(individual)
                     #offspring
                     if individual.steps_made % 3 == 0:
-                        new_ind = IndividualNaive(cycle, len(survivors),
-                                                  known_actions=individual.known_actions,
-                                                  parent_id=individual.id) #todo we dont configure what it plays
+                        if self.given_scenario is not None: #csunya
+                            new_ind = Individual(cycle, len(survivors),
+                                                    known_actions=individual.known_actions,
+                                                    parent_id=individual.id,
+                                                    scenario=self.given_scenario())
+                        else:
+                            new_ind = Individual(cycle, len(survivors),
+                                                 known_actions=individual.known_actions,
+                                                 parent_id=individual.id)
                         survivors.append(new_ind)
-                    #fully trained
-                    if individual.fully_trained:
-                        fully_trained_individuals.append(individual)
+                    #fully trained #todo
+                    # if individual.fully_trained:
+                    #     fully_trained_individuals.append(individual)
             self.generation = survivors
             print(f"cycle: {cycle}, num of survivors: {len(survivors)}")
 
@@ -125,24 +114,24 @@ class GeneticNaive:
         db.insert_many(models)
 
 def models_to_individuals(models: list[GeneticIndividualModel]):
-    inds = []
-    for i in range(len(models)):
-        inds.append(IndividualNaive(
-            0, #todo id
-            i,
-            ActionHolder(models[i].action_set),
-            models[i].parent_id,
-            models[i].other_parent_id
-        )
-    )
-    return inds
+    individuals = []
+    for model in models:
+        individuals.append(Individual(
+            model.ind_id.split(',')[0],
+            model.ind_id.split(',')[1],
+            known_actions=ActionHolder(model.action_set),
+            parent_id=model.parent_id,
+            other_parent_id=model.other_parent_id
+        ))
+    return individuals
 
 
 
+#TODO review bc i changed a lot
 class Genetic:
 
     def __init__(self, number_of_individuals: int = POPULATION_SIZE):
-        self.generation = [Individual(0) for _ in range(number_of_individuals)]
+        self.generation = [Individual(0, _) for _ in range(number_of_individuals)]
         self.newest_generation_number = 0
 
     def train(self, cycles: int):
@@ -158,8 +147,8 @@ class Genetic:
             self.newest_generation_number = cycle
             for individual in self.generation:
                 individual.act()
-                if individual.fully_trained:
-                    fully_trained.append(individual)
+                # if individual.fully_trained:
+                #     fully_trained.append(individual)
 
             self.selection()
             print(f"{len(self.generation)} individuals selected")
@@ -204,12 +193,16 @@ class Genetic:
     def fitness(self, individual: Individual) -> bool:
         #should we check learnt moves or just based on steps? OR just if its alive?
         #maybe other factors kick in after a certain number of gens
+        #top 50%?
         if not individual.scenario.is_alive:
             return False
         #TODO otherwise, check other parameters
         return True
 
-#todo deprecated most likely
+####################################################################
+#DEP deprecated most likely
+#####################################################################
+
 class ActionWithContext:
 
     def __init__(self, env: Environment, step: Step, context: ContextHolder):
@@ -227,10 +220,10 @@ class ActionWithContext:
         return self.env_eq(other) and self.context_eq(other)
 
     def __eq__(self, other):
-        return self.step == other.step and self.env_and_context_eq(other) ##todo, maybe refactor eqs to static
+        return self.step == other.step and self.env_and_context_eq(other) ##dep, maybe refactor eqs to static
 
 class ActionWithContextHolder:
-    #TODO not happy with this, refactor if possible
+    #DEP not happy with this, refactor if possible
 
     def __init__(self, actions: list[ActionWithContext] = None):
         if actions is None:
@@ -268,12 +261,12 @@ class ActionWithContextHolder:
 
 
 class IndividualWithContext:
-    #TODO test, refactor maybe
+    #DEP test, refactor maybe
 
     def __init__(self, generation: int, known_actions: ActionWithContextHolder = ActionWithContextHolder(),  scenario: ContextBasedGame  = ContextBasedGame):
         self.generation = generation
         self.known_actions = known_actions
-        self.scenario = scenario.__init__() #TODO this is not gonna be okay, if i wanna give them predefined scenarios!!!!!!
+        self.scenario = scenario.__init__() #DEP this is not gonna be okay, if i wanna give them predefined scenarios!!!!!!
         self.steps_made = 0
 
     def act(self):
@@ -289,12 +282,12 @@ class IndividualWithContext:
 
 
 class GeneticNaiveWithContext:
-    #TODO check if child should inherit food amount
+    #dep check if child should inherit food amount
     def __init__(self, number_of_individuals: int = POPULATION_SIZE):
         self.generation = [IndividualWithContext(0) for _ in range(number_of_individuals)]
 
     def train(self, cycles: int):
-        #todo, since fully training is unreasonable, what do we do?
+        #dep, since fully training is unreasonable, what do we do?
         cycle = 1 #for logging
         while cycle <= cycles:
             survivors = []
@@ -315,7 +308,7 @@ class GeneticNaiveWithContext:
             if len(survivors) == 0:
                 break
             cycle += 1
-        #TODO store stuff
+        #dep store stuff
         print("training finished")
 
 class GeneticWithContext:
@@ -337,7 +330,7 @@ class GeneticWithContext:
             print(f"{len(self.generation)} individuals selected")
             self.reproduction()
             self.mutation()
-        #TODO stats
+        #dep stats
         print("end genetic")
 
     def selection(self):
@@ -348,7 +341,7 @@ class GeneticWithContext:
         self.generation = selected
 
     def mutation(self):
-        #todo test
+        #dep test
         for individual in self.generation:
             if individual.generation == self.newest_generation_number and random() < MUTATION_RATE:
                 #forget a move
@@ -378,5 +371,5 @@ class GeneticWithContext:
         #maybe other factors kick in after a certain number of gens
         if not individual.scenario.is_alive:
             return False
-        #TODO otherwise, check other parameters
+        #dep otherwise, check other parameters
         return True

@@ -32,11 +32,12 @@ REWARD_FOR_STARVED = -10 #prolly dont need this?
 class CustomEnv(gym.Env):
     """Custom environment of the game for agents to operate on"""
 
-    def __init__(self):
+    def __init__(self, scenario = None, specific_scenario = False):
         self.action_space = gym.spaces.Discrete(4)
         # might also be a tuple of discrete spaces, maybe simpler this way; Box might also work
         self.observation_space = gym.spaces.MultiDiscrete([4, 4, 4, 4])
-        self.scenario = None
+        self.scenario = scenario
+        self.specific_scenario = specific_scenario
 
     def _get_obs(self):
         env = self.scenario.get_environment()
@@ -80,7 +81,8 @@ class CustomEnv(gym.Env):
     ) -> Tuple[ObsType, dict]:
         """Instantiates a new episode"""
         super().reset()
-        self.scenario = SimpleGame()
+        if not self.specific_scenario:
+            self.scenario = SimpleGame()
         info = self._get_info()
         return self._get_obs(), info
 
@@ -95,9 +97,7 @@ class CustomEnv(gym.Env):
 
 class Agent:
 
-    #give it a name, if it exists load it, if not create
-    #should make model a field too
-    def __init__(self, alg, name: str, do_save: bool = False):
+    def __init__(self, alg = A2C, name: str = "test", do_save: bool = False):
         self.alg = alg
         self.name = name
         self.do_save = do_save
@@ -107,42 +107,37 @@ class Agent:
         print("started learn")
         env = CustomEnv()
         env = DummyVecEnv([lambda: env]) #only vectorize for A2C
-        m = self.alg('MlpPolicy', env, verbose = 1) #check policy
+        m = self.alg('MlpPolicy', env, verbose = 1)
         m.learn(total_timesteps = timesteps)
         self.model = m
         print("ended learn")
 
         if self.do_save:
             print("saving model")
-            self._save_model(m)
+            self.save_model(m)
 
     def evaluate(self, episodes: int):
-        #dont fully understand this one
         env = CustomEnv()
         env = DummyVecEnv([lambda: env]) #only vectorize for A2C
-
         evaluate_policy(self.model, env, n_eval_episodes=episodes, render=False)
 
     def test(self):
         env = CustomEnv()
         obs, _ = env.reset()
         print("testing agent")
-        steps_taken = 0 #TODO temp
         while True:
             action, _states = self.model.predict(obs)
             obs, rewards, done, _, info = env.step(action)
-            steps_taken += 1
             print(f"action taken: {Step(action)}, reward gotten: {rewards}, info: {info}")
             if done:
-                print(f"done, with {steps_taken} steps taken")
+                print(f"done, with {env.scenario.steps_made} steps taken")
                 break
 
-    def _save_model(self, model):
+    def save_model(self, model):
         path = os.path.join('rl', 'models', self.name)
         model.save(path)
 
-    #TODO use
-    def _load_model(self, model, env):
+    def load_model(self, model, env):
         path = os.path.join('rl', 'models', self.name)
         if not os.path.isfile(path):
             FileNotFoundError("no model with such a name exists")

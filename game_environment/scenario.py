@@ -7,16 +7,15 @@ from utils.scenario_utils import TileState, Step, ResultOfStep, Position, Enviro
 
 
 
-#todo idea:
+#dep idea:
 #   - have different trees, which give different food values
 #   - punish backtracking
 
-# TODO IDEA:
+# dep IDEA:
 #   - after choosing a step to take, give the model the upcoming environment, and see where it steps;
 #       if it backtracks - make it choose a different step???????????????
 
 #IDEA: actor can decide to wait?
-
 TREE_RATIO = 0.4
 LION_RATIO = 0.2
 
@@ -74,10 +73,21 @@ class ContextHolder:
 #end deprecated
 
 class SimpleGame:
+
     # 10by10 list representing tiles
-    def __init__(self, num_of_steps = INITIAL_NUMBER_OF_STEPS):
-        self.board = self._generate_board()
-        self.player_position = self._place_player(self.board)
+    def __init__(self, num_of_steps = INITIAL_NUMBER_OF_STEPS,
+                 board = None, spawn: Position = None,
+                 lion_ratio = LION_RATIO, tree_ratio = TREE_RATIO):
+        self.TREE_RATIO = tree_ratio
+        self.LION_RATIO = lion_ratio
+        if board is None:
+            self.board = self._generate_board()
+        else:
+            self.board = board
+        if spawn is None:
+            self.player_position = self._place_player(self.board)
+        else:
+            self.player_position = spawn
         #re-generate board if death would be unavoidable
         while self._detect_unavoidable_death():
             self.board = self._generate_board()
@@ -135,12 +145,10 @@ class SimpleGame:
                 self.board[self.player_position.x][self.player_position.y] = TileState.LAND
                 break
 
-
-    @staticmethod
-    def _generate_board() -> list[list[TileState]]:
+    def _generate_board(self) -> list[list[TileState]]:
         gen = np.random.choice([0, 1, 2],
                                (10, 10), True,
-                               [1 - TREE_RATIO - LION_RATIO, TREE_RATIO, LION_RATIO])
+                               [1 - self.TREE_RATIO - self.LION_RATIO, self.TREE_RATIO, self.LION_RATIO])
         board = []
         for row in gen:
             r = []

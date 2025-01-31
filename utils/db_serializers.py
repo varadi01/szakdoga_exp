@@ -60,7 +60,7 @@ class ScenarioSerializer(Serializer):
     def deserialize(self, doc) -> ScenarioModel:
         return ScenarioModel(
             doc["board"], #sus
-            tuple(doc["spawn_coordinates"]),
+            doc["spawn_coordinates"],
             doc["parameter_string"],
             doc["env_type"]
         )

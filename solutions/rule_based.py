@@ -80,7 +80,7 @@ class RuleBasedPlayer:
             steps,
             self.game.steps_left,
             "simple",
-            RecordModel.make_parameter_string(0.4,0.3) #todo change me
+            RecordModel.make_parameter_string(self.game.TREE_RATIO, self.game.LION_RATIO)
         )
         db.insert(record)
 
