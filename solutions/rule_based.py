@@ -59,7 +59,7 @@ class RuleBasedPlayer:
                 game_result = RecordModel.GameResult.STARVED
                 break
 
-            if result == ResultOfStep.ENCOUNTERED_LION:  # might need tree
+            if result == ResultOfStep.EATEN_BY_LION:  # might need tree
                 print(f"steps taken: {steps_taken}, cause of death: {result}")
                 game_result = RecordModel.GameResult.LION
                 break

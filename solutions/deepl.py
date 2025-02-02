@@ -34,6 +34,8 @@ PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_data
 
 #TODO try normalizing
 
+#TODO!!! train with list of good steps? possible?
+
 def _get_dataset_from_source(source):
     samples = []
     labels = []

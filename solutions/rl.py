@@ -58,14 +58,14 @@ class CustomEnv(gym.Env):
         reward = 0
         terminated = False
         match result:
-            case ResultOfStep.LAND:
+            case ResultOfStep.NOTHING:
                 reward = REWARD_FOR_LAND
-            case ResultOfStep.TREE:
+            case ResultOfStep.FOUND_TREE:
                 reward = REWARD_FOR_TREE
             case ResultOfStep.STARVED:
                 reward = REWARD_FOR_STARVED
                 terminated = True
-            case ResultOfStep.ENCOUNTERED_LION:
+            case ResultOfStep.EATEN_BY_LION:
                 reward = REWARD_FOR_LION
                 terminated = True
 

@@ -1,6 +1,7 @@
+import random
 from random import randint
 import numpy as np
-from utils.scenario_utils import TileState, Step, ResultOfStep, Position, Environment
+from utils.scenario_utils import TileState, Step, ExtendedStep, ResultOfStep, ExtendedResultOfStep, Position, Environment
 
 #Keywords: Board, Environment, Position, Tile, Player, Step(Move), Death(Starvation, Lion)
 #   Number of steps(food?), Tree(food source), Lion,
@@ -85,7 +86,7 @@ class SimpleGame:
         else:
             self.board = board
         if spawn is None:
-            self.player_position = self._place_player(self.board)
+            self.player_position = SimpleGame._place_player(self.board)
         else:
             self.player_position = spawn
         #re-generate board if death would be unavoidable
@@ -105,14 +106,14 @@ class SimpleGame:
         )
 
     def make_step(self, step: Step) -> ResultOfStep:
-        new_position = self._translate_step(self.player_position, step)
+        new_position = SimpleGame._translate_step(self.player_position, step)
         self.player_position = new_position
         self.steps_left -= 1
 
         #check where we stepped
         if self._get_tile_at_position(new_position) == TileState.LAND:
             if self.steps_left > 0:
-                return ResultOfStep.LAND
+                return ResultOfStep.NOTHING
             self.is_alive = False
             return ResultOfStep.STARVED
 
@@ -120,11 +121,11 @@ class SimpleGame:
             self.steps_left += STEPS_GAINED_ON_FINDING_TREE
             #remove tree, place elsewhere
             self._tree_consumed()
-            return ResultOfStep.TREE
+            return ResultOfStep.FOUND_TREE
 
         if self._get_tile_at_position(new_position) == TileState.LION:
             self.is_alive = False
-            return ResultOfStep.ENCOUNTERED_LION
+            return ResultOfStep.EATEN_BY_LION
 
     def _get_tile_at_position(self, pos: Position) -> TileState:
         return self.board[pos.x][pos.y]
@@ -208,3 +209,128 @@ class ContextBasedGame(SimpleGame):
         #update context
         self.context.update_context(prev, step)
         return res
+##end
+
+
+
+
+# TODO extended scenario ideas:
+# 1
+# actor sees the results of actions and chooses from those? (might still be useful)
+
+
+# 2!
+# lions move randomly (maybe not every time (random chance / take some - rest pattern)
+# new goal, other than survival
+# if only 1 lion is around, the actor can step ON them to shoot and kill(remove) them
+
+# choose
+## (stay action, if the actor moves when in proximity of 2 or more lions, they die)
+## #- kinda bloat-y, we'd get a lot of situations where stay is the best
+## #- punish staying too long? lose food even when staying? dunno
+
+## (pursuit, if the actor moves when in proximity of 2 or more lions, they get followed)
+## #- might be hard to implement
+## #- limits the freedom of movement of the actor, can get cornered (additional challenge?)
+## #- might be interesting bc, we could aggro and 'lure' single lions to kill them
+### #- pursuit thing might be better, if the lions wouldn't normally move?
+
+# removing all lions means the game is won
+
+
+## todo rewards difficult? training data difficult?
+## more food from trees? as killing lions also consumes food
+
+
+#### just because you can write an algorithm to solve the game, doesn't make it meaningless to make these!
+
+class ExtendedGame(SimpleGame):
+
+    def make_step(self, step: Step) -> ResultOfStep:
+        if self._should_stay() and step != ExtendedStep.STAY: #hope comparison works
+            self.is_alive = False
+            return ResultOfStep.EATEN_BY_LION
+        new_position = SimpleGame._translate_step(self.player_position, step)
+        tile_state = self._get_tile_at_position(new_position)
+        valid_shot = self._valid_shot()
+        old_player_position = self.player_position
+        self.player_position = new_position
+        if step != ExtendedStep.STAY:
+            self.steps_left -= 1
+        match tile_state:
+            case TileState.LAND:
+                if self.steps_left > 0:
+                    return ResultOfStep.NOTHING
+                self.is_alive = False
+                return ResultOfStep.STARVED
+
+            case TileState.TREE:
+                self.steps_left += STEPS_GAINED_ON_FINDING_TREE #todo might need to be more +1?
+                self._tree_consumed()
+                return ResultOfStep.FOUND_TREE
+
+            case TileState.LION:
+                if valid_shot:
+                    return ExtendedResultOfStep.SHOT_LION
+                else:
+                    self.is_alive = False
+                    return ResultOfStep.EATEN_BY_LION
+
+        self._move_lions(old_player_position)
+
+    def _move_lions(self, old_player_position: Position):
+        #todo every time / random chance / take some - rest pattern?
+        lion_positions = []
+
+        for line in range(10):
+            for col in range(10):
+                pos = Position(line, col)
+                if self._get_tile_at_position(pos) == TileState.LION:
+                    lion_positions.append(pos)
+
+        for lion_pos in lion_positions:
+            while True:
+                possible_steps = [Step.UP, Step.LEFT, Step.DOWN, Step.RIGHT]
+                step = random.choice(possible_steps)
+                new_proposed_pos = SimpleGame._translate_step(lion_pos, step)
+                new_pos = lion_pos
+                if (self._get_tile_at_position(new_proposed_pos) == TileState.LAND
+                        and new_proposed_pos != self.player_position
+                        and new_proposed_pos != old_player_position):
+                    new_pos = new_proposed_pos
+                    break
+                else:
+                    possible_steps.remove(step)
+                    if len(possible_steps) == 0:
+                        break
+
+            self.board[lion_pos.x][lion_pos.y] = TileState.LAND
+            self.board[new_pos.x][new_pos.y] = TileState.LION
+
+    def is_won(self) -> bool:
+        """returns True if no lions remain on the board, False otherwise"""
+        no_lions = True
+        for line in self.board:
+            for tile in line:
+                if tile == TileState.LION:
+                    no_lions = False
+                return no_lions
+
+    def _remove_lion(self, position: Position):
+        self.board[position.x][position.y] = TileState.LAND
+
+    def _valid_shot(self):
+        env = self.get_environment()
+        lion_count = 0
+        for tile in env.get_as_list():
+            if tile == TileState.LION:
+                lion_count += 1
+        return lion_count == 1
+
+    def _should_stay(self):
+        env = self.get_environment()
+        lion_count = 0
+        for tile in env.get_as_list():
+            if tile == TileState.LION:
+                lion_count += 1
+        return lion_count > 1

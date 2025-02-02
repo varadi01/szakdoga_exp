@@ -12,12 +12,18 @@ class Step(Enum):
     DOWN = 2
     LEFT = 3
 
+class ExtendedStep(Step):
+    STAY = 4
+
 
 class ResultOfStep(Enum):
-    LAND = 0
-    TREE = 1
-    ENCOUNTERED_LION = 2
+    NOTHING = 0
+    FOUND_TREE = 1
+    EATEN_BY_LION = 2
     STARVED = 3
+
+class ExtendedResultOfStep(ResultOfStep):
+    SHOT_LION = 4
 
 
 class Environment:
