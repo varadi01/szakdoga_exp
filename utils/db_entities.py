@@ -4,7 +4,7 @@ class RecordModel:
 
     class GameResult(Enum):
         COMPLETE = 0,
-        LION = 1,
+        EATEN_BY_LION = 1,
         STARVED = 2
 
     def __init__(self, player_id: str, result: GameResult, steps_taken: int, food_at_end: int, env_type: str, env_parameter_string: str):

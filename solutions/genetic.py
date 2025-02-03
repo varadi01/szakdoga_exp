@@ -3,8 +3,8 @@
 # mutation? make them forget steps? change step randomly, crossover x% of the time
 # selection? based on fitness function, keep individual if their fitness is over a certain percentile of all individuals(top x%)
 
-from game_environment.scenario import SimpleGame, ContextHolder, ContextBasedGame
-from utils.scenario_utils import Environment, Step
+from game_environment.scenario import SimpleGame, ContextHolder, ContextBasedGame, ExtendedGame
+from utils.scenario_utils import Environment, Step, ExtendedStep
 from random import choice, random
 from utils.db_context import get_instance
 from utils.db_entities import GeneticIndividualModel
@@ -20,20 +20,46 @@ MUTATION_RATE = 0.05
 # First: offspring inherits all moves, forget some, missing spots are filled with completely new individuals
 # Second: surviving individuals are shuffled to create offspring, crossover, missing spots are filled via randomly selecting moves from parent generation?
 
+def models_to_individuals(models: list[GeneticIndividualModel]):
+    individuals = []
+    for model in models:
+        individuals.append(Individual(
+            model.ind_id.split(',')[0],
+            model.ind_id.split(',')[1],
+            known_actions=ActionHolder(model.action_set),
+            parent_id=model.parent_id,
+            other_parent_id=model.other_parent_id
+        ))
+    return individuals
+
+def save_individuals(col, individuals_to_save, env_type):
+    db = get_instance(col, 'g')
+    models = []
+    for ind in individuals_to_save:
+        models.append(
+            GeneticIndividualModel(
+                ind.id,
+                ind.known_actions,
+                env_type,
+                ind.parent_id,
+                ind.other_parent_id
+            )
+        )
+    db.insert_many(models)
 
 class Individual:
 
     def __init__(self, generation: int, seq_num: int,
                  known_actions: ActionHolder = ActionHolder(),
                  parent_id: str = None, other_parent_id: str = None,
-                 scenario = None):
+                 game_tree_ratio: float = None, game_lion_ratio: float = None):
         self.generation = generation
         self.id = f"{self.generation},{seq_num}"
         self.parent_id = parent_id
         self.other_parent_id = other_parent_id
         self.known_actions = known_actions
-        if scenario is not None:
-            self.scenario = scenario
+        if game_tree_ratio is not None:
+            self.scenario = SimpleGame(tree_ratio=game_tree_ratio, lion_ratio=game_lion_ratio)
         else:
             self.scenario = SimpleGame()
         self.steps_made = 0
@@ -48,19 +74,46 @@ class Individual:
         self.steps_made += 1
         self.scenario.make_step(step_to_take)
 
-    def set_scenario(self, game):
-        self.scenario = game
+    def set_specific_scenario(self, scenario):
+        """scenario must be an initialized game"""
+        self.scenario = scenario
         self.steps_made = 0
+
+    def is_fully_trained(self):
+        return len(self.known_actions.actions) >= 80 #probably
+
+class ExtendedIndividual(Individual):
+
+    def __init__(self, generation: int, seq_num: int, known_actions: ActionHolder = ActionHolder(),
+                 parent_id: str = None, other_parent_id: str = None,
+                 game_tree_ratio: float = None, game_lion_ratio: float = None):
+        super().__init__(generation, seq_num, known_actions, parent_id, other_parent_id)
+        if game_tree_ratio is not None:
+            self.scenario = ExtendedGame(tree_ratio=game_tree_ratio, lion_ratio=game_lion_ratio)
+        else:
+            self.scenario = ExtendedGame()
+
+    def act(self):
+        current_environment = self.scenario.get_environment()
+        if self.known_actions.is_env_known(current_environment):
+            step_to_take = self.known_actions.get_action_for_env(current_environment)
+        else:
+            step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT, ExtendedStep.STAY))
+            self.known_actions.add_action(Action(current_environment, step_to_take))
+        self.steps_made += 1
+        self.scenario.make_step(step_to_take)
 
 
 class GeneticNaive:
     #TODO check if child should inherit food amount
-    def __init__(self, number_of_individuals: int = POPULATION_SIZE, existing_generation = None, given_scenario = None):
-        if existing_generation is not None:
-            self.generation = existing_generation
-        else:
-            self.generation = [Individual(0, _) for _ in range(number_of_individuals)]
-        self.given_scenario = given_scenario
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE,
+                 existing_generation = None, #for further training or testing
+                 game_tree_ratio: float = None, game_lion_ratio: float = None, # for specifying the environment ratios
+                 individual_type: Individual = Individual):
+        self.game_tree_ratio = game_tree_ratio
+        self.game_lion_ratio = game_lion_ratio
+        self.individual_type = individual_type
+        self.generation = self._initialize_generation(existing_generation, number_of_individuals)
 
     def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
         fully_trained_individuals = []
@@ -71,23 +124,15 @@ class GeneticNaive:
             # advance every individual
             for individual in [_ for _ in self.generation]: #??, necessary? to make copy I guess
                 individual.act()
+                if individual.is_fully_trained() and individual.scenario.is_alive:
+                    fully_trained_individuals.append(individual)
+                    individual.scenario.is_alive = False #take them out #todo check if I want this?
                 if individual.scenario.is_alive:
                     survivors.append(individual)
                     #offspring
-                    if individual.steps_made % 3 == 0:
-                        if self.given_scenario is not None: #csunya
-                            new_ind = Individual(cycle, len(survivors),
-                                                    known_actions=individual.known_actions,
-                                                    parent_id=individual.id,
-                                                    scenario=self.given_scenario())
-                        else:
-                            new_ind = Individual(cycle, len(survivors),
-                                                 known_actions=individual.known_actions,
-                                                 parent_id=individual.id)
+                    if individual.steps_made % 3 == 0: #repro
+                        new_ind = self._create_new_individual(cycle, len(survivors), individual)
                         survivors.append(new_ind)
-                    #fully trained #todo
-                    # if individual.fully_trained:
-                    #     fully_trained_individuals.append(individual)
             self.generation = survivors
             print(f"cycle: {cycle}, num of survivors: {len(survivors)}")
 
@@ -96,65 +141,57 @@ class GeneticNaive:
             cycle += 1
         print("training finished")
         if do_save:
-            self.save_individuals(target_collection)
+            save_individuals(target_collection, self.generation, "naive")
+            save_individuals(target_collection+"-ft", fully_trained_individuals, "naive") # !!! saving fully trained separately also
 
-    def save_individuals(self, col):
-        db = get_instance(col, 'g')
-        individuals_to_save = self.generation
-        models = []
-        for ind in individuals_to_save:
-            models.append(
-                GeneticIndividualModel(
-                    ind.id,
-                    ind.known_actions,
-                    "naive0402",
-                    ind.parent_id
-                )
-            )
-        db.insert_many(models)
+    def _initialize_generation(self, existing_generation, population_size):
+        if existing_generation is not None:
+            return existing_generation
+        else:
+            return [self.individual_type.__init__(0, _, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for _ in range(population_size)]
 
-def models_to_individuals(models: list[GeneticIndividualModel]):
-    individuals = []
-    for model in models:
-        individuals.append(Individual(
-            model.ind_id.split(',')[0],
-            model.ind_id.split(',')[1],
-            known_actions=ActionHolder(model.action_set),
-            parent_id=model.parent_id,
-            other_parent_id=model.other_parent_id
-        ))
-    return individuals
+    def _create_new_individual(self, generation, seq_num, parent):
+        return self.individual_type.__init__(generation, seq_num,
+                                                known_actions=parent.known_actions,
+                                                parent_id=parent.id,
+                                                game_tree_ratio=self.game_tree_ratio,
+                                                game_lion_ratio=self.game_lion_ratio)
 
-
-
-#TODO review bc i changed a lot
 class Genetic:
 
-    def __init__(self, number_of_individuals: int = POPULATION_SIZE):
-        self.generation = [Individual(0, _) for _ in range(number_of_individuals)]
+    def __init__(self, number_of_individuals: int = POPULATION_SIZE,
+                 existing_generation=None,  # for further training or testing
+                 game_tree_ratio: float = None, game_lion_ratio: float = None,  # for specifying the environment ratios
+                 individual_type: Individual = Individual):
+        self.game_tree_ratio = game_tree_ratio
+        self.game_lion_ratio = game_lion_ratio
+        self.individual_type = individual_type
+        self.generation = self._initialize_generation(existing_generation, number_of_individuals)
         self.newest_generation_number = 0
 
-    def train(self, cycles: int):
+    def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
         print("starting genetic")
         #stable population:
         #each ind. takes a step, fitness check to eliminate unwanted ones
         #selection to top up population?
         #mutation
         cycle = 1
-        fully_trained = []
+        fully_trained_individuals = []
         while cycle <= cycles:
             print(f"cycle {cycle} started")
             self.newest_generation_number = cycle
             for individual in self.generation:
                 individual.act()
-                # if individual.fully_trained:
-                #     fully_trained.append(individual)
-
+                if individual.is_fully_trained():
+                    fully_trained_individuals.append(individual)
+                    individual.scenario.is_alive = False
             self.selection()
             print(f"{len(self.generation)} individuals selected")
             self.reproduction()
             self.mutation()
-        #TODO stats
+        if do_save:
+            save_individuals(target_collection, self.generation, "normal")
+            save_individuals(target_collection+"-ft", fully_trained_individuals, "normal") # !!! saving fully trained separately also
         print("end genetic")
 
     def selection(self):
@@ -173,6 +210,7 @@ class Genetic:
     def reproduction(self):
         # can 'newborns' be parents?
         # I say yes, bc we get more varied children that way
+        seq_num = 0 # for db
         while len(self.generation) < POPULATION_SIZE:
             #pick parents
             parent1 = choice(self.generation)
@@ -186,8 +224,11 @@ class Genetic:
             for action in parent2.known_actions.actions:
                 inherited_actions.add_action(action)
             #create child
-            new_individual = Individual(self.newest_generation_number, inherited_actions)
-            #add child to generation(population)
+            new_individual = self.individual_type.__init__(self.newest_generation_number, seq_num,
+                                                           inherited_actions,
+                                                           parent1.id, parent2.id,
+                                                           self.game_tree_ratio, self.game_lion_ratio)
+            seq_num += 1
             self.generation.append(new_individual)
 
     def fitness(self, individual: Individual) -> bool:
@@ -198,6 +239,13 @@ class Genetic:
             return False
         #TODO otherwise, check other parameters
         return True
+
+    def _initialize_generation(self, existing_generation, population_size):
+        if existing_generation is not None:
+            return existing_generation
+        else:
+            return [self.individual_type.__init__(0, _, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for _ in range(population_size)]
+
 
 ####################################################################
 #DEP deprecated most likely

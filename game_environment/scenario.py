@@ -78,7 +78,8 @@ class SimpleGame:
     # 10by10 list representing tiles
     def __init__(self, num_of_steps = INITIAL_NUMBER_OF_STEPS,
                  board = None, spawn: Position = None,
-                 lion_ratio = LION_RATIO, tree_ratio = TREE_RATIO):
+                 lion_ratio = LION_RATIO, tree_ratio = TREE_RATIO,
+                 food_on_tree = STEPS_GAINED_ON_FINDING_TREE):
         self.TREE_RATIO = tree_ratio
         self.LION_RATIO = lion_ratio
         if board is None:
@@ -95,6 +96,7 @@ class SimpleGame:
             self.player_position = self._place_player(self.board)
 
         self.steps_left = num_of_steps
+        self.food_on_tree = food_on_tree
         self.is_alive = True
 
     def get_environment(self) -> Environment:
@@ -118,7 +120,7 @@ class SimpleGame:
             return ResultOfStep.STARVED
 
         if self._get_tile_at_position(new_position) == TileState.TREE:
-            self.steps_left += STEPS_GAINED_ON_FINDING_TREE
+            self.steps_left += self.food_on_tree
             #remove tree, place elsewhere
             self._tree_consumed()
             return ResultOfStep.FOUND_TREE
@@ -214,7 +216,7 @@ class ContextBasedGame(SimpleGame):
 
 
 
-# TODO extended scenario ideas:
+# extended scenario ideas:
 # 1
 # actor sees the results of actions and chooses from those? (might still be useful)
 
@@ -238,7 +240,7 @@ class ContextBasedGame(SimpleGame):
 # removing all lions means the game is won
 
 
-## todo rewards difficult? training data difficult?
+## rewards difficult? training data difficult?
 ## more food from trees? as killing lions also consumes food
 
 
@@ -265,7 +267,7 @@ class ExtendedGame(SimpleGame):
                 return ResultOfStep.STARVED
 
             case TileState.TREE:
-                self.steps_left += STEPS_GAINED_ON_FINDING_TREE #todo might need to be more +1?
+                self.steps_left += self.food_on_tree #todo might need to be more +1?
                 self._tree_consumed()
                 return ResultOfStep.FOUND_TREE
 

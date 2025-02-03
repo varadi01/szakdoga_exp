@@ -7,7 +7,7 @@ from utils.scenario_utils import Position, TileState, Step
 from game_environment.scenario import SimpleGame
 from utils.db_entities import ScenarioModel, GeneticIndividualModel
 from solutions.genetic import Individual, GeneticNaive, Genetic
-from solutions.rl import CustomEnv, Agent
+from solutions.rl import CustomEnvForSimpleGame, Agent
 from utils.genetic_action_utils import ActionHolder
 
 def get_scenarios_from_collection(collection_name: str):
@@ -107,7 +107,7 @@ def eval_rl(scenarios, model_path):
     agent = Agent(name="eval")
     agent.load_model(model_path, SimpleGame)
     for scenario in scenarios:
-        env = CustomEnv(scenario, True)
+        env = CustomEnvForSimpleGame(scenario, True)
         obs, _ = env.reset()
         while True: #maybe is_alive, check
             action, _states = agent.model.predict(obs)
@@ -123,7 +123,7 @@ def eval_gen(scenarios: list[SimpleGame], gen_collection):
         for scenario in scenarios:
             for individual in individuals:
                 scenario_copy: SimpleGame = scenario #clone?
-                individual.set_scenario(scenario_copy)
+                individual.set_specific_scenario(scenario_copy)
                 while individual.scenario.is_alive:
                     individual.act()
                 steps_taken = individual.steps_made

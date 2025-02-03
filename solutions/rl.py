@@ -14,22 +14,22 @@ from gym.core import ActType, ObsType, RenderFrame
 
 import numpy as np
 
-from stable_baselines3 import PPO, A2C
+from stable_baselines3 import DQN, A2C
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
-from utils.scenario_utils import Step, Environment, ResultOfStep
-from game_environment.scenario import SimpleGame
+from utils.scenario_utils import Step, ExtendedStep, ResultOfStep, ExtendedResultOfStep
+from game_environment.scenario import SimpleGame, ExtendedGame
 
 
-#TODO make DQN work aswell
+#TODO make DQN work
 
-REWARD_FOR_TREE = 30
-REWARD_FOR_LAND = 1
-REWARD_FOR_LION = -100
-REWARD_FOR_STARVED = -10 #prolly dont need this?
+REWARD_FOR_FINDING_TREE = 30
+REWARD_FOR_TAKING_STEP = 1
+REWARD_FOR_GETTING_EATEN = -1000
+REWARD_FOR_STARVING = -100 #prolly dont need this?
 
-class CustomEnv(gym.Env):
+class CustomEnvForSimpleGame(gym.Env):
     """Custom environment of the game for agents to operate on"""
 
     def __init__(self, scenario = None, specific_scenario = False):
@@ -59,14 +59,14 @@ class CustomEnv(gym.Env):
         terminated = False
         match result:
             case ResultOfStep.NOTHING:
-                reward = REWARD_FOR_LAND
+                reward = REWARD_FOR_TAKING_STEP
             case ResultOfStep.FOUND_TREE:
-                reward = REWARD_FOR_TREE
+                reward = REWARD_FOR_FINDING_TREE
             case ResultOfStep.STARVED:
-                reward = REWARD_FOR_STARVED
+                reward = REWARD_FOR_STARVING
                 terminated = True
             case ResultOfStep.EATEN_BY_LION:
-                reward = REWARD_FOR_LION
+                reward = REWARD_FOR_GETTING_EATEN
                 terminated = True
 
         new_obs = self._get_obs()
@@ -94,8 +94,76 @@ class CustomEnv(gym.Env):
         """render a view of episodes"""
         return NotImplementedError("we don't do that here")
 
+REWARD_FOR_SHOOTING_LION = 200
+
+class CustomEnvForExtendedGame(gym.Env):
+    """Custom environment of the game for agents to operate on"""
+
+    def __init__(self, scenario = None, specific_scenario = False):
+        self.action_space = gym.spaces.Discrete(5)
+        self.observation_space = gym.spaces.MultiDiscrete([4, 4, 4, 4])
+        self.scenario = scenario
+        self.specific_scenario = specific_scenario
+
+    def _get_obs(self):
+        env = self.scenario.get_environment()
+        #TODO test
+        return np.array(env.get_as_list())
+
+    def _take_action(self, action) -> ResultOfStep:
+        step = ExtendedStep(action)
+        return self.scenario.make_step(step)
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, bool, dict]:
+        """takes an action in the episode"""
+        result = self._take_action(action)
+        reward = 0
+        terminated = False
+        match result:
+            case ExtendedResultOfStep.NOTHING:
+                reward = REWARD_FOR_TAKING_STEP
+            case ExtendedResultOfStep.FOUND_TREE:
+                reward = REWARD_FOR_FINDING_TREE
+            case ExtendedResultOfStep.STARVED:
+                reward = REWARD_FOR_STARVING
+                terminated = True
+            case ExtendedResultOfStep.EATEN_BY_LION:
+                reward = REWARD_FOR_GETTING_EATEN
+                terminated = True
+            case ExtendedResultOfStep.SHOT_LION:
+                reward = REWARD_FOR_SHOOTING_LION
+
+        new_obs = self._get_obs()
+        info = self._get_info()
+        return new_obs, reward, terminated, False, info
+
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[dict] = None,
+    ) -> Tuple[ObsType, dict]:
+        """Instantiates a new episode"""
+        super().reset()
+        if not self.specific_scenario:
+            self.scenario = ExtendedGame()
+        info = self._get_info()
+        return self._get_obs(), info
+
+    def _get_info(self):
+        """UNIMPLEMENTED"""
+        return {} #not used for anything currently
+
+    def close(self):
+        """clean up used resources, close renderer"""
+        return NotImplementedError("we don't do that here")
+
+    def render(self) -> Optional[Union[RenderFrame, List[RenderFrame]]]:
+        """render a view of episodes"""
+        return NotImplementedError("we don't do that here")
 
 class Agent:
+    #todo try DQN
 
     def __init__(self, alg = A2C, name: str = "test", do_save: bool = False):
         self.alg = alg
@@ -105,8 +173,8 @@ class Agent:
 
     def learn(self, timesteps: int):
         print("started learn")
-        env = CustomEnv()
-        env = DummyVecEnv([lambda: env]) #only vectorize for A2C
+        env = CustomEnvForSimpleGame()
+        env = DummyVecEnv([lambda: env]) #todo only vectorize for A2C
         m = self.alg('MlpPolicy', env, verbose = 1)
         m.learn(total_timesteps = timesteps)
         self.model = m
@@ -117,12 +185,12 @@ class Agent:
             self.save_model(m)
 
     def evaluate(self, episodes: int):
-        env = CustomEnv()
-        env = DummyVecEnv([lambda: env]) #only vectorize for A2C
+        env = CustomEnvForSimpleGame()
+        env = DummyVecEnv([lambda: env]) #todo only vectorize for A2C
         evaluate_policy(self.model, env, n_eval_episodes=episodes, render=False)
 
     def test(self):
-        env = CustomEnv()
+        env = CustomEnvForSimpleGame()
         obs, _ = env.reset()
         print("testing agent")
         while True:
