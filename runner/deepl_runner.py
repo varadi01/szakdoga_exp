@@ -1,4 +1,4 @@
-from solutions.deepl import SmallClassDeepl
+from solutions.deepl import Deepl
 from game_environment.scenario import SimpleGame
 import os
 
@@ -7,7 +7,7 @@ PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_data
 
 
 def main():
-    da = SmallClassDeepl()
+    da = Deepl()
     da.describe()
     da.learn(PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET)
     da.evaluate(PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET)

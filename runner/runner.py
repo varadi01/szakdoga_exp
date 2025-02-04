@@ -11,7 +11,7 @@
 
 import os
 
-from solutions.deepl import SmallClassDeepl
+from solutions.deepl import Deepl
 
 from solutions.rule_based import RuleBasedPlayer
 

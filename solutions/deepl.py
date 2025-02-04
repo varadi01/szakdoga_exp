@@ -27,7 +27,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import shuffle
 
 from game_environment.scenario import SimpleGame
-from utils.scenario_utils import Step
+from utils.scenario_utils import Step, ExtendedStep
 
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
@@ -64,7 +64,7 @@ def load_model(name):
     path = os.path.join('deepl', 'models', name)
     return keras._tf_keras.keras.models.load_model(path)
 
-class SmallClassDeepl:
+class Deepl:
     """Model trained on small data, using traditional classification"""
 
     def __init__(self, optimizer = Adam, learning_rate = 0.02, loss = 'categorical_crossentropy', metrics = ['accuracy']):
@@ -78,7 +78,6 @@ class SmallClassDeepl:
         self.model.compile(
             optimizer=optimizer(learning_rate=learning_rate),
             loss=loss, metrics=metrics)
-        print("compiled model")
 
     def learn(self, path, batch:int = 100, epochs: int = 50, validation_split = 0.05):
         samples, labels = _get_dataset_from_source(path)
@@ -97,6 +96,7 @@ class SmallClassDeepl:
                        verbose=2)
 
     def evaluate(self, path, batch:int = 10):
+        #TODO evaluate more accurately? consider multiple correct choices
         samples, labels = _get_dataset_from_source(path)
         eval_labels = np.array(labels)
         eval_samples = np.array(samples)
@@ -117,7 +117,6 @@ class SmallClassDeepl:
             if rounded_predictions[i] == np.argmax(eval_labels[i]):
                 hits += 1
         print(f"chose correctly {hits/len(eval_labels)*100:.2f}% of the time")
-        #TODO stats
 
 
     def test(self, game: SimpleGame):
@@ -137,5 +136,33 @@ class SmallClassDeepl:
         print(self.model.summary())
 
 
-SmallClassDeepl(Adam, 0.001, 'categorical_crossentropy', ['accuracy'])
-# 2. Big model: bigger dataset #nah
+class ExtendedDeepl(Deepl):
+
+    def __init__(self, optimizer=Adam, learning_rate=0.02, loss='categorical_crossentropy', metrics=['accuracy']):
+        super().__init__(optimizer, learning_rate, loss, metrics) #dunno
+        #maybe different model size
+        self.model = Sequential([
+            Input(shape=(4,)),
+            Dense(units=64, activation='relu'),
+            Dense(units=64, activation='relu'),
+            Dense(units=5, activation='softmax')
+        ])
+        self.model.compile(
+            optimizer=optimizer(learning_rate=learning_rate),
+            loss=loss, metrics=metrics)
+
+
+    def test(self, game: SimpleGame):
+        steps = 0
+        while game.is_alive:
+            env = game.get_environment()
+            prediction = self.model.predict(np.array(env.get_as_list())[None,...])
+            print(prediction)
+            step_int = np.argmax(prediction)
+            print(ExtendedStep(step_int))
+            game.make_step(ExtendedStep(step_int))
+            steps += 1
+        print(f" taken:{steps} food:{game.steps_left}")
+
+
+#SmallClassDeepl(Adam, 0.001, 'categorical_crossentropy', ['accuracy'])

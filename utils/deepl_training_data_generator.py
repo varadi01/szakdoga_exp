@@ -1,12 +1,12 @@
-from impl.rule_based import RuleBasedPlayer
-from impl.scenario import SimpleGame, Environment, TileState
+from solutions.rule_based import RuleBasedPlayer, ExtendedRuleBasePlayer
+from game_environment.scenario import Environment, TileState
 from random import randint
 import os
 
 
-def generate_data(filename: str = "dataset", data_length: int = 1000):
+def generate_data(alg, filename: str = "dataset", data_length: int = 1000):
     f = open(os.path.join("..", "res", filename + ".txt"), "+w")
-    alg = RuleBasedPlayer(SimpleGame()) # just need the guy itself
+    alg = alg.__init__() # just need the guy itself
     for _ in range(data_length):
         env = Environment(
             TileState(randint(0, 2)),
@@ -22,4 +22,4 @@ def generate_data(filename: str = "dataset", data_length: int = 1000):
     f.close()
 
 
-generate_data("gt_dataset", 2000)
+#generate_data(RuleBasedPlayer,"gt_dataset", 2000)
