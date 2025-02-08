@@ -249,7 +249,7 @@ class ContextBasedGame(SimpleGame):
 class ExtendedGame(SimpleGame):
 
     def make_step(self, step: Step) -> ResultOfStep:
-        if self._should_stay() and step != ExtendedStep.STAY: #hope comparison works
+        if self._should_stay() and step != Step.STAY: #hope comparison works
             self.is_alive = False
             return ResultOfStep.EATEN_BY_LION
         new_position = SimpleGame._translate_step(self.player_position, step)
@@ -257,7 +257,7 @@ class ExtendedGame(SimpleGame):
         valid_shot = self._valid_shot()
         old_player_position = self.player_position
         self.player_position = new_position
-        if step != ExtendedStep.STAY:
+        if step != Step.STAY:
             self.steps_left -= 1
         match tile_state:
             case TileState.LAND:
@@ -273,7 +273,7 @@ class ExtendedGame(SimpleGame):
 
             case TileState.LION:
                 if valid_shot:
-                    return ExtendedResultOfStep.SHOT_LION
+                    return ResultOfStep.SHOT_LION
                 else:
                     self.is_alive = False
                     return ResultOfStep.EATEN_BY_LION

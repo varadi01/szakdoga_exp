@@ -58,13 +58,16 @@ class DBContext:
     def insert(self, obj):
         doc = self.serializer.serialize(obj)
         self.collection.insert_one(doc)
+        print(f"inserted document into {self.collection}")
 
     def insert_many(self, objs):
         docs = self.serializer.serialize_many(objs)
         self.collection.insert_many(docs)
+        print(f"inserted documents into {self.collection}")
 
     def get_all(self):
         docs = self.collection.find()
+        print(f"queried documents from {self.collection}")
         return self.serializer.deserialize_many(docs)
 
     def drop(self):

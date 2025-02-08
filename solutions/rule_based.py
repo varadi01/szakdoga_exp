@@ -100,7 +100,7 @@ class ExtendedRuleBasePlayer:
             else:
                 self.game = ExtendedGame()
 
-    def act(self, env: Environment = None) -> ExtendedStep:
+    def act(self, env: Environment = None) -> Step:
         """env only used for ease of data generation"""
         # get env
         if env is None:
@@ -113,34 +113,34 @@ class ExtendedRuleBasePlayer:
         lions = []
 
         if environment.up == TileState.TREE:
-            trees.append(ExtendedStep.UP)
+            trees.append(Step.UP)
         if environment.right == TileState.TREE:
-            trees.append(ExtendedStep.RIGHT)
+            trees.append(Step.RIGHT)
         if environment.down == TileState.TREE:
-            trees.append(ExtendedStep.DOWN)
+            trees.append(Step.DOWN)
         if environment.left == TileState.TREE:
-            trees.append(ExtendedStep.LEFT)
+            trees.append(Step.LEFT)
 
         if environment.up == TileState.LAND:
-            land.append(ExtendedStep.UP)
+            land.append(Step.UP)
         if environment.right == TileState.LAND:
-            land.append(ExtendedStep.RIGHT)
+            land.append(Step.RIGHT)
         if environment.down == TileState.LAND:
-            land.append(ExtendedStep.DOWN)
+            land.append(Step.DOWN)
         if environment.left == TileState.LAND:
-            land.append(ExtendedStep.LEFT)
+            land.append(Step.LEFT)
 
         if environment.up == TileState.LION:
-            lions.append(ExtendedStep.UP)
+            lions.append(Step.UP)
         if environment.right == TileState.LION:
-            lions.append(ExtendedStep.RIGHT)
+            lions.append(Step.RIGHT)
         if environment.down == TileState.LION:
-            lions.append(ExtendedStep.DOWN)
+            lions.append(Step.DOWN)
         if environment.left == TileState.LION:
-            lions.append(ExtendedStep.LEFT)
+            lions.append(Step.LEFT)
 
         if len(lions) > 1:
-            c = ExtendedStep.STAY
+            c = Step.STAY
         elif len(lions) == 1:
             if len(trees) > 0:
                 if self.game.steps_left >= 2: #tekitou ni
@@ -162,12 +162,12 @@ class ExtendedRuleBasePlayer:
             steps_taken += 1
             result = self.game.make_step(step)
 
-            if result == ExtendedResultOfStep.STARVED:  # might need tree
+            if result == ResultOfStep.STARVED:  # might need tree
                 print(f"steps taken: {steps_taken}, cause of death: {result}")
                 game_result = RecordModel.GameResult.STARVED
                 break
 
-            if result == ExtendedResultOfStep.EATEN_BY_LION:  # might need tree
+            if result == ResultOfStep.EATEN_BY_LION:  # might need tree
                 print(f"steps taken: {steps_taken}, cause of death: {result}")
                 game_result = RecordModel.GameResult.EATEN_BY_LION
                 break
@@ -191,4 +191,4 @@ class ExtendedRuleBasePlayer:
         )
         db.insert(record)
 
-
+# RuleBasedPlayer(tree_ratio=0.4, lion_ratio=0.4).eval()

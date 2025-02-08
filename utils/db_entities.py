@@ -1,11 +1,12 @@
 from enum import Enum
 
-class RecordModel:
 
-    class GameResult(Enum):
-        COMPLETE = 0,
-        EATEN_BY_LION = 1,
-        STARVED = 2
+class GameResult(Enum):
+    COMPLETE = 0,
+    EATEN_BY_LION = 1,
+    STARVED = 2
+
+class RecordModel:
 
     def __init__(self, player_id: str, result: GameResult, steps_taken: int, food_at_end: int, env_type: str, env_parameter_string: str):
         self.player_id = player_id
@@ -22,6 +23,15 @@ class RecordModel:
     def make_parameter_string(tree_ration: float, lion_ratio: float):
         return f"T{tree_ration * 100}L{lion_ratio * 100}"
 
+    @staticmethod
+    def determine_result(is_alive, steps_left):
+        if is_alive and steps_left > 0:
+            return GameResult.COMPLETE
+        elif not is_alive and steps_left > 0:
+            return GameResult.EATEN_BY_LION
+        else:
+            return GameResult.STARVED
+
 class ScenarioModel:
 
     def __init__(self, board, spawn, parameter_string, env_type):
@@ -35,6 +45,7 @@ class ScenarioModel:
         return f"T{tree_ration*100}L{lion_ratio*100}"
 
 class GeneticIndividualModel:
+    """action_set here is an ActionHolder, it gets serialized normally"""
 
     def __init__(self, ind_id, action_set, env_type, parent_id, other_parent_id = None):
         self.ind_id = ind_id

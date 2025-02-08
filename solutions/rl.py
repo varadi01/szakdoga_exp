@@ -102,7 +102,7 @@ class CustomEnvForExtendedGame(gym.Env):
     def __init__(self, scenario = None, specific_scenario = False):
         self.action_space = gym.spaces.Discrete(5)
         self.observation_space = gym.spaces.MultiDiscrete([4, 4, 4, 4])
-        self.scenario = scenario
+        self.scenario: ExtendedGame = scenario
         self.specific_scenario = specific_scenario
 
     def _get_obs(self):
@@ -111,7 +111,7 @@ class CustomEnvForExtendedGame(gym.Env):
         return np.array(env.get_as_list())
 
     def _take_action(self, action) -> ResultOfStep:
-        step = ExtendedStep(action)
+        step = Step(action)
         return self.scenario.make_step(step)
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, bool, dict]:
@@ -120,18 +120,21 @@ class CustomEnvForExtendedGame(gym.Env):
         reward = 0
         terminated = False
         match result:
-            case ExtendedResultOfStep.NOTHING:
+            case ResultOfStep.NOTHING:
                 reward = REWARD_FOR_TAKING_STEP
-            case ExtendedResultOfStep.FOUND_TREE:
+            case ResultOfStep.FOUND_TREE:
                 reward = REWARD_FOR_FINDING_TREE
-            case ExtendedResultOfStep.STARVED:
+            case ResultOfStep.STARVED:
                 reward = REWARD_FOR_STARVING
                 terminated = True
-            case ExtendedResultOfStep.EATEN_BY_LION:
+            case ResultOfStep.EATEN_BY_LION:
                 reward = REWARD_FOR_GETTING_EATEN
                 terminated = True
-            case ExtendedResultOfStep.SHOT_LION:
+            case ResultOfStep.SHOT_LION:
                 reward = REWARD_FOR_SHOOTING_LION
+
+        if self.scenario.is_won():
+            terminated = True
 
         new_obs = self._get_obs()
         info = self._get_info()

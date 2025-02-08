@@ -88,7 +88,8 @@ class GeneticIndividualSerializer(Serializer):
     def _action_set_serializer(action_set):
         new = []
         for action in action_set.actions:
-            a_rep = action.env.get_as_list().extend(action.step.value)
+            a_rep = action.env.get_as_list()
+            a_rep.append(action.step.value)
             new.append(a_rep)
         return new
 

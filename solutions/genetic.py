@@ -26,13 +26,15 @@ def models_to_individuals(models: list[GeneticIndividualModel]):
         individuals.append(Individual(
             model.ind_id.split(',')[0],
             model.ind_id.split(',')[1],
-            known_actions=ActionHolder(model.action_set),
+            known_actions=model.action_set.actions,
             parent_id=model.parent_id,
             other_parent_id=model.other_parent_id
         ))
     return individuals
 
 def save_individuals(col, individuals_to_save, env_type):
+    if len(individuals_to_save) == 0:
+        return
     db = get_instance(col, 'g')
     models = []
     for ind in individuals_to_save:
@@ -50,14 +52,17 @@ def save_individuals(col, individuals_to_save, env_type):
 class Individual:
 
     def __init__(self, generation: int, seq_num: int,
-                 known_actions: ActionHolder = ActionHolder(),
+                 known_actions: list[Action] = None,
                  parent_id: str = None, other_parent_id: str = None,
                  game_tree_ratio: float = None, game_lion_ratio: float = None):
         self.generation = generation
         self.id = f"{self.generation},{seq_num}"
         self.parent_id = parent_id
         self.other_parent_id = other_parent_id
-        self.known_actions = known_actions
+        if known_actions is not None:
+            self.known_actions = ActionHolder(known_actions)
+        else:
+            self.known_actions = ActionHolder()
         if game_tree_ratio is not None:
             self.scenario = SimpleGame(tree_ratio=game_tree_ratio, lion_ratio=game_lion_ratio)
         else:
@@ -67,7 +72,7 @@ class Individual:
     def act(self):
         current_environment = self.scenario.get_environment()
         if self.known_actions.is_env_known(current_environment):
-            step_to_take = self.known_actions.get_action_for_env(current_environment)
+            step_to_take = self.known_actions.get_action_for_env(current_environment).step
         else:
             step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
             self.known_actions.add_action(Action(current_environment, step_to_take))
@@ -84,7 +89,8 @@ class Individual:
 
 class ExtendedIndividual(Individual):
 
-    def __init__(self, generation: int, seq_num: int, known_actions: ActionHolder = ActionHolder(),
+    def __init__(self, generation: int, seq_num: int,
+                 known_actions: list[Action] = None,
                  parent_id: str = None, other_parent_id: str = None,
                  game_tree_ratio: float = None, game_lion_ratio: float = None):
         super().__init__(generation, seq_num, known_actions, parent_id, other_parent_id)
@@ -96,9 +102,9 @@ class ExtendedIndividual(Individual):
     def act(self):
         current_environment = self.scenario.get_environment()
         if self.known_actions.is_env_known(current_environment):
-            step_to_take = self.known_actions.get_action_for_env(current_environment)
+            step_to_take = self.known_actions.get_action_for_env(current_environment).step
         else:
-            step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT, ExtendedStep.STAY))
+            step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT, Step.STAY))
             self.known_actions.add_action(Action(current_environment, step_to_take))
         self.steps_made += 1
         self.scenario.make_step(step_to_take)
@@ -148,11 +154,11 @@ class GeneticNaive:
         if existing_generation is not None:
             return existing_generation
         else:
-            return [self.individual_type.__init__(0, _, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for _ in range(population_size)]
+            return [self.individual_type(generation=0, seq_num=i, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for i in range(population_size)]
 
     def _create_new_individual(self, generation, seq_num, parent):
-        return self.individual_type.__init__(generation, seq_num,
-                                                known_actions=parent.known_actions,
+        return self.individual_type(generation, seq_num,
+                                                known_actions=parent.known_actions.actions,
                                                 parent_id=parent.id,
                                                 game_tree_ratio=self.game_tree_ratio,
                                                 game_lion_ratio=self.game_lion_ratio)
@@ -187,6 +193,8 @@ class Genetic:
                     individual.scenario.is_alive = False
             self.selection()
             print(f"{len(self.generation)} individuals selected")
+            if len(self.generation) == 0:
+                break
             self.reproduction()
             self.mutation()
         if do_save:
@@ -211,7 +219,7 @@ class Genetic:
         # can 'newborns' be parents?
         # I say yes, bc we get more varied children that way
         seq_num = 0 # for db
-        while len(self.generation) < POPULATION_SIZE:
+        while len(self.generation) < POPULATION_SIZE and len(self.generation) != 0:
             #pick parents
             parent1 = choice(self.generation)
             parent2 = choice(self.generation)
@@ -224,8 +232,8 @@ class Genetic:
             for action in parent2.known_actions.actions:
                 inherited_actions.add_action(action)
             #create child
-            new_individual = self.individual_type.__init__(self.newest_generation_number, seq_num,
-                                                           inherited_actions,
+            new_individual = self.individual_type(self.newest_generation_number, seq_num,
+                                                           inherited_actions.actions,
                                                            parent1.id, parent2.id,
                                                            self.game_tree_ratio, self.game_lion_ratio)
             seq_num += 1
@@ -244,7 +252,7 @@ class Genetic:
         if existing_generation is not None:
             return existing_generation
         else:
-            return [self.individual_type.__init__(0, _, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for _ in range(population_size)]
+            return [self.individual_type(0, _, game_tree_ratio=self.game_tree_ratio, game_lion_ratio=self.game_lion_ratio) for _ in range(population_size)]
 
 
 ####################################################################

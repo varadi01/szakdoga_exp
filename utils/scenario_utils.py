@@ -12,8 +12,10 @@ class Step(Enum):
     DOWN = 2
     LEFT = 3
 
-class ExtendedStep(Step):
     STAY = 4
+
+class ExtendedStep(Enum):
+    STAY = 4 #dep
 
 
 class ResultOfStep(Enum):
@@ -22,8 +24,10 @@ class ResultOfStep(Enum):
     EATEN_BY_LION = 2
     STARVED = 3
 
-class ExtendedResultOfStep(ResultOfStep):
     SHOT_LION = 4
+
+class ExtendedResultOfStep(Enum):
+    SHOT_LION = 4 #dep
 
 
 class Environment:
@@ -40,7 +44,7 @@ class Environment:
                 and self.up == other.up
                 and self.down == other.down)
 
-    def get_as_list(self):
+    def get_as_list(self) -> list:
         return [
             self.up.value,
             self.right.value,

@@ -159,8 +159,8 @@ class ExtendedDeepl(Deepl):
             prediction = self.model.predict(np.array(env.get_as_list())[None,...])
             print(prediction)
             step_int = np.argmax(prediction)
-            print(ExtendedStep(step_int))
-            game.make_step(ExtendedStep(step_int))
+            print(Step(step_int))
+            game.make_step(Step(step_int))
             steps += 1
         print(f" taken:{steps} food:{game.steps_left}")
 
