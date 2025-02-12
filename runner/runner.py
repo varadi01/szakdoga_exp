@@ -34,10 +34,7 @@ def main():
     #     print(serializer.deserialize(doc))
 
 
-    # agent = Agent(A2C, "test", False)
-    # agent.learn(1000)
-    # agent.evaluate(10)
-    # agent.test()
+
 
 
 

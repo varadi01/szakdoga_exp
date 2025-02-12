@@ -31,10 +31,12 @@ from utils.scenario_utils import Step, ExtendedStep
 
 PATH_TO_SIMPLE_GENERATED_LEARNING_DATASET = os.path.join("..", "res", "gt_dataset.txt")
 PATH_TO_SIMPLE_GENERATED_EVALUATION_DATASET = os.path.join("..", "res", "ge_dataset.txt")
+PATH_TO_EXTENDED_GENERATE_LEARNING_DATASET = os.path.join("..", "res", "gt_ex_dataset.txt")
+PATH_TO_EXTENDED_GENERATE_EVALUATION_DATASET = os.path.join("..", "res", "ge_ex_dataset.txt")
 
 #TODO try normalizing
 
-#TODO!!! train with list of good steps? possible?
+#check!!! train with list of good steps? possible?
 
 def _get_dataset_from_source(source):
     samples = []
@@ -50,18 +52,18 @@ def _get_dataset_from_source(source):
             int(tile_states[2]),
             int(tile_states[3])
         ])
-        label = np.zeros(4,)
+        label = np.zeros(5,) #!!! CHANGE BACK-FORTH
         label[int(action)] = 1
         labels.append(label)
     f.close()
     return samples, labels
 
-def save_model(model, name):
-    path = os.path.join('deepl', 'models', name)
+def save_model(model: Sequential, name):
+    path = os.path.join(os.getcwd(),'..', 'deepl', 'models', name + '.keras')
     model.save(path)
 
 def load_model(name):
-    path = os.path.join('deepl', 'models', name)
+    path = os.path.join(os.getcwd(),'..', 'deepl', 'models', name + '.keras')
     return keras._tf_keras.keras.models.load_model(path)
 
 class Deepl:
@@ -88,7 +90,7 @@ class Deepl:
         print(f"{train_samples[0]}, {train_labels[0]}" )
 
         # scaler = MinMaxScaler(feature_range=(0,1))
-        # scaled_train_samples = scaler.fit_transform(train_samples) #TODO might need scaling?
+        # scaled_train_samples = scaler.fit_transform(train_samples)
 
         self.model.fit(x=train_samples, y=train_labels,
                        validation_split=validation_split,
@@ -96,7 +98,7 @@ class Deepl:
                        verbose=2)
 
     def evaluate(self, path, batch:int = 10):
-        #TODO evaluate more accurately? consider multiple correct choices
+        #might want to evaluate more accurately? consider multiple correct choices
         samples, labels = _get_dataset_from_source(path)
         eval_labels = np.array(labels)
         eval_samples = np.array(samples)
@@ -124,9 +126,9 @@ class Deepl:
         while game.is_alive:
             env = game.get_environment()
             prediction = self.model.predict(np.array(env.get_as_list())[None,...])
-            print(prediction)
+            # print(prediction)
             step_int = np.argmax(prediction)
-            print(Step(step_int))
+            # print(Step(step_int))
             game.make_step(Step(step_int))
             steps += 1
         print(f" taken:{steps} food:{game.steps_left}")

@@ -22,12 +22,10 @@ from utils.scenario_utils import Step, ExtendedStep, ResultOfStep, ExtendedResul
 from game_environment.scenario import SimpleGame, ExtendedGame
 
 
-#TODO make DQN work
-
-REWARD_FOR_FINDING_TREE = 30
+REWARD_FOR_FINDING_TREE = 20
 REWARD_FOR_TAKING_STEP = 1
 REWARD_FOR_GETTING_EATEN = -1000
-REWARD_FOR_STARVING = -100 #prolly dont need this?
+REWARD_FOR_STARVING = 0 #prolly dont need this?
 
 class CustomEnvForSimpleGame(gym.Env):
     """Custom environment of the game for agents to operate on"""
@@ -41,7 +39,6 @@ class CustomEnvForSimpleGame(gym.Env):
 
     def _get_obs(self):
         env = self.scenario.get_environment()
-        #TODO test
         return np.array(env.get_as_list())
 
     def _take_action(self, action) -> ResultOfStep:
@@ -107,7 +104,6 @@ class CustomEnvForExtendedGame(gym.Env):
 
     def _get_obs(self):
         env = self.scenario.get_environment()
-        #TODO test
         return np.array(env.get_as_list())
 
     def _take_action(self, action) -> ResultOfStep:
@@ -121,7 +117,7 @@ class CustomEnvForExtendedGame(gym.Env):
         terminated = False
         match result:
             case ResultOfStep.NOTHING:
-                reward = REWARD_FOR_TAKING_STEP
+                reward = REWARD_FOR_TAKING_STEP - (REWARD_FOR_TAKING_STEP + 1)
             case ResultOfStep.FOUND_TREE:
                 reward = REWARD_FOR_FINDING_TREE
             case ResultOfStep.STARVED:
@@ -166,19 +162,26 @@ class CustomEnvForExtendedGame(gym.Env):
         return NotImplementedError("we don't do that here")
 
 class Agent:
-    #todo try DQN
 
-    def __init__(self, alg = A2C, name: str = "test", do_save: bool = False):
+    def __init__(self, alg = A2C, name: str = "test", do_save: bool = False, env_type: str = "simple", learning_rate: float = None):
         self.alg = alg
         self.name = name
         self.do_save = do_save
         self.model = None
+        self.env_type = env_type
+        self.learning_rate = learning_rate
 
     def learn(self, timesteps: int):
         print("started learn")
         env = CustomEnvForSimpleGame()
-        env = DummyVecEnv([lambda: env]) #todo only vectorize for A2C
-        m = self.alg('MlpPolicy', env, verbose = 1)
+        if self.env_type == "extended":
+            env = CustomEnvForExtendedGame()
+        if self.alg == A2C:
+            env = DummyVecEnv([lambda: env])
+        if self.learning_rate is not None:
+            m = self.alg('MlpPolicy', env, verbose = 1, learning_rate=self.learning_rate)
+        else:
+            m = self.alg('MlpPolicy', env, verbose=1)
         m.learn(total_timesteps = timesteps)
         self.model = m
         print("ended learn")
@@ -189,27 +192,38 @@ class Agent:
 
     def evaluate(self, episodes: int):
         env = CustomEnvForSimpleGame()
-        env = DummyVecEnv([lambda: env]) #todo only vectorize for A2C
+        if self.env_type == "extended":
+            env = CustomEnvForExtendedGame()
+        if self.alg == A2C:
+            env = DummyVecEnv([lambda: env])
         evaluate_policy(self.model, env, n_eval_episodes=episodes, render=False)
 
     def test(self):
         env = CustomEnvForSimpleGame()
+        if self.env_type == "extended":
+            env = CustomEnvForExtendedGame()
         obs, _ = env.reset()
         print("testing agent")
+        steps_made = 0
+        cumulated_reward = 0
         while True:
             action, _states = self.model.predict(obs)
             obs, rewards, done, _, info = env.step(action)
-            print(f"action taken: {Step(action)}, reward gotten: {rewards}, info: {info}")
+            # print(f"action taken: {Step(action)}, reward gotten: {rewards},food: {env.scenario.steps_left}, info: {info}")
+            cumulated_reward += rewards
+            steps_made += 1
             if done:
-                print(f"done, with {env.scenario.steps_made} steps taken")
+                print(f"done, with {steps_made} steps taken, cumulative reward {cumulated_reward}")
                 break
 
     def save_model(self, model):
-        path = os.path.join('rl', 'models', self.name)
+        path = os.path.join(os.getcwd(), "..", 'rl', 'models', self.name)
+        print(path)
         model.save(path)
 
-    def load_model(self, model, env):
-        path = os.path.join('rl', 'models', self.name)
+    def load_model(self, model_name: str, env = None):
+        path = os.path.join(os.getcwd(), '..', 'rl', 'models', model_name)
+        print(path)
         if not os.path.isfile(path):
             FileNotFoundError("no model with such a name exists")
-        model.load(path, env=env) #might not be path
+        self.model = self.alg.load(path, env=env) #might not be path

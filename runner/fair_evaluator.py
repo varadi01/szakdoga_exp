@@ -106,7 +106,6 @@ def deconstruct_board(board: list[list[TileState]]):
         converted_board.append(c_line)
     return converted_board
 
-#TODO ex
 
 def evaluate(collection: str, env_type: str, model_type: str, target_collection: str, model_path: str = None, gen_collection: str = None):
     scenarios = get_scenarios_from_collection(collection, env_type)

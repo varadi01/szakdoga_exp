@@ -17,8 +17,8 @@ from utils.scenario_utils import TileState, Step, ExtendedStep, ResultOfStep, Ex
 #       if it backtracks - make it choose a different step???????????????
 
 #IDEA: actor can decide to wait?
-TREE_RATIO = 0.4
-LION_RATIO = 0.2
+TREE_RATIO = 0.3
+LION_RATIO = 0.3
 
 INITIAL_NUMBER_OF_STEPS = 5
 STEPS_GAINED_ON_FINDING_TREE = 2
@@ -248,23 +248,35 @@ class ContextBasedGame(SimpleGame):
 
 class ExtendedGame(SimpleGame):
 
+    def __init__(self, num_of_steps=INITIAL_NUMBER_OF_STEPS, board=None, spawn: Position = None,
+                 lion_ratio=LION_RATIO, tree_ratio=TREE_RATIO,
+                 food_on_tree=STEPS_GAINED_ON_FINDING_TREE):
+        super().__init__(num_of_steps, board, spawn, lion_ratio, tree_ratio, food_on_tree)
+
     def make_step(self, step: Step) -> ResultOfStep:
         if self._should_stay() and step != Step.STAY: #hope comparison works
             self.is_alive = False
             return ResultOfStep.EATEN_BY_LION
+        if step == Step.STAY:
+            self.steps_left -= 0.5 #1 #0.25 #need to deduct some
+            if self.steps_left > 0:
+                return ResultOfStep.NOTHING
+            else:
+                self.is_alive = False
+                return ResultOfStep.STARVED
         new_position = SimpleGame._translate_step(self.player_position, step)
         tile_state = self._get_tile_at_position(new_position)
         valid_shot = self._valid_shot()
         old_player_position = self.player_position
         self.player_position = new_position
-        if step != Step.STAY:
-            self.steps_left -= 1
+        self.steps_left -= 1
         match tile_state:
             case TileState.LAND:
                 if self.steps_left > 0:
                     return ResultOfStep.NOTHING
-                self.is_alive = False
-                return ResultOfStep.STARVED
+                else:
+                    self.is_alive = False
+                    return ResultOfStep.STARVED
 
             case TileState.TREE:
                 self.steps_left += self.food_on_tree #todo might need to be more +1?
@@ -316,7 +328,7 @@ class ExtendedGame(SimpleGame):
             for tile in line:
                 if tile == TileState.LION:
                     no_lions = False
-                return no_lions
+        return no_lions
 
     def _remove_lion(self, position: Position):
         self.board[position.x][position.y] = TileState.LAND

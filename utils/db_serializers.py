@@ -81,7 +81,7 @@ class GeneticIndividualSerializer(Serializer):
             doc["individual_id"],
             GeneticIndividualSerializer._action_set_deserializer(doc["action_set"]),
             doc["env_type"],
-            doc["parent_id":],
+            doc["parent_id"],
             doc["other_parent_id"]
         )
     @staticmethod
