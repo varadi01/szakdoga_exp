@@ -22,9 +22,9 @@ from utils.scenario_utils import Step, ExtendedStep, ResultOfStep, ExtendedResul
 from game_environment.scenario import SimpleGame, ExtendedGame
 
 
-REWARD_FOR_FINDING_TREE = 20
-REWARD_FOR_TAKING_STEP = 1
-REWARD_FOR_GETTING_EATEN = -1000
+REWARD_FOR_FINDING_TREE = 50
+REWARD_FOR_TAKING_STEP = 0
+REWARD_FOR_GETTING_EATEN = 0
 REWARD_FOR_STARVING = 0 #prolly dont need this?
 
 class CustomEnvForSimpleGame(gym.Env):
@@ -91,7 +91,7 @@ class CustomEnvForSimpleGame(gym.Env):
         """render a view of episodes"""
         return NotImplementedError("we don't do that here")
 
-REWARD_FOR_SHOOTING_LION = 200
+REWARD_FOR_SHOOTING_LION = 500
 
 class CustomEnvForExtendedGame(gym.Env):
     """Custom environment of the game for agents to operate on"""
@@ -117,7 +117,7 @@ class CustomEnvForExtendedGame(gym.Env):
         terminated = False
         match result:
             case ResultOfStep.NOTHING:
-                reward = REWARD_FOR_TAKING_STEP - (REWARD_FOR_TAKING_STEP + 1)
+                reward = REWARD_FOR_TAKING_STEP #- (REWARD_FOR_TAKING_STEP + 1)
             case ResultOfStep.FOUND_TREE:
                 reward = REWARD_FOR_FINDING_TREE
             case ResultOfStep.STARVED:
@@ -203,7 +203,6 @@ class Agent:
         if self.env_type == "extended":
             env = CustomEnvForExtendedGame()
         obs, _ = env.reset()
-        print("testing agent")
         steps_made = 0
         cumulated_reward = 0
         while True:
@@ -217,12 +216,12 @@ class Agent:
                 break
 
     def save_model(self, model):
-        path = os.path.join(os.getcwd(), "..", 'rl', 'models', self.name)
+        path = os.path.join(os.getcwd(), "..", 'rl', 'new_models', self.name)
         print(path)
         model.save(path)
 
     def load_model(self, model_name: str, env = None):
-        path = os.path.join(os.getcwd(), '..', 'rl', 'models', model_name)
+        path = os.path.join(os.getcwd(), '..', 'rl', 'new_models', model_name)
         print(path)
         if not os.path.isfile(path):
             FileNotFoundError("no model with such a name exists")

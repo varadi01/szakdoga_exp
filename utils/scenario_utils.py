@@ -44,7 +44,8 @@ class Environment:
                 and self.up == other.up
                 and self.down == other.down)
 
-    def get_as_list(self) -> list:
+    def get_as_list(self) -> list[int]:
+        """returns a list of integers!!!"""
         return [
             self.up.value,
             self.right.value,

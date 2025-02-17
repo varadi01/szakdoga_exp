@@ -6,6 +6,7 @@ from utils.scenario_utils import TileState, Step, ExtendedStep, ResultOfStep, Ex
 #Keywords: Board, Environment, Position, Tile, Player, Step(Move), Death(Starvation, Lion)
 #   Number of steps(food?), Tree(food source), Lion,
 
+#shooting a lion shouldnt cost food
 
 
 #dep idea:
@@ -17,7 +18,7 @@ from utils.scenario_utils import TileState, Step, ExtendedStep, ResultOfStep, Ex
 #       if it backtracks - make it choose a different step???????????????
 
 #IDEA: actor can decide to wait?
-TREE_RATIO = 0.3
+TREE_RATIO = 0.4
 LION_RATIO = 0.3
 
 INITIAL_NUMBER_OF_STEPS = 5
@@ -160,6 +161,9 @@ class SimpleGame:
             board.append(r)
         return board
 
+    def is_won(self):
+        return False
+
     @staticmethod
     def _translate_step(current_position: Position, step: Step) -> Position:
         player_position = Position(current_position.x, current_position.y)
@@ -252,48 +256,56 @@ class ExtendedGame(SimpleGame):
                  lion_ratio=LION_RATIO, tree_ratio=TREE_RATIO,
                  food_on_tree=STEPS_GAINED_ON_FINDING_TREE):
         super().__init__(num_of_steps, board, spawn, lion_ratio, tree_ratio, food_on_tree)
+        self.is_alive = True
 
     def make_step(self, step: Step) -> ResultOfStep:
-        if self._should_stay() and step != Step.STAY: #hope comparison works
+        result = None
+        if self._should_stay() and step != Step.STAY:
             self.is_alive = False
-            return ResultOfStep.EATEN_BY_LION
-        if step == Step.STAY:
-            self.steps_left -= 0.5 #1 #0.25 #need to deduct some
-            if self.steps_left > 0:
-                return ResultOfStep.NOTHING
-            else:
-                self.is_alive = False
-                return ResultOfStep.STARVED
+            result = ResultOfStep.EATEN_BY_LION
+        if result is None:
+            if step == Step.STAY:
+                self.steps_left -= 0.25 #need to deduct some
+                if self.steps_left > 0:
+                    result = ResultOfStep.NOTHING
+                else:
+                    self.is_alive = False
+                    result = ResultOfStep.STARVED
         new_position = SimpleGame._translate_step(self.player_position, step)
         tile_state = self._get_tile_at_position(new_position)
         valid_shot = self._valid_shot()
         old_player_position = self.player_position
         self.player_position = new_position
-        self.steps_left -= 1
-        match tile_state:
-            case TileState.LAND:
-                if self.steps_left > 0:
-                    return ResultOfStep.NOTHING
-                else:
-                    self.is_alive = False
-                    return ResultOfStep.STARVED
+        if result is None:
+            self.steps_left -= 1
+            match tile_state:
+                case TileState.LAND:
+                    if self.steps_left > 0:
+                        result = ResultOfStep.NOTHING
+                    else:
+                        self.is_alive = False
+                        result = ResultOfStep.STARVED
 
-            case TileState.TREE:
-                self.steps_left += self.food_on_tree #todo might need to be more +1?
-                self._tree_consumed()
-                return ResultOfStep.FOUND_TREE
+                case TileState.TREE:
+                    self.steps_left += self.food_on_tree
+                    self._tree_consumed()
+                    result = ResultOfStep.FOUND_TREE
 
-            case TileState.LION:
-                if valid_shot:
-                    return ResultOfStep.SHOT_LION
-                else:
-                    self.is_alive = False
-                    return ResultOfStep.EATEN_BY_LION
+                case TileState.LION:
+                    if valid_shot:
+                        if self.is_won():
+                            self.is_alive = False
+                        self.steps_left += 1
+                        result = ResultOfStep.SHOT_LION
+                    else:
+                        self.is_alive = False
+                        result = ResultOfStep.EATEN_BY_LION
 
         self._move_lions(old_player_position)
+        return result
 
     def _move_lions(self, old_player_position: Position):
-        #todo every time / random chance / take some - rest pattern?
+        # every time / random chance / take some - rest pattern?
         lion_positions = []
 
         for line in range(10):
@@ -303,8 +315,8 @@ class ExtendedGame(SimpleGame):
                     lion_positions.append(pos)
 
         for lion_pos in lion_positions:
+            possible_steps = [Step.UP, Step.LEFT, Step.DOWN, Step.RIGHT]
             while True:
-                possible_steps = [Step.UP, Step.LEFT, Step.DOWN, Step.RIGHT]
                 step = random.choice(possible_steps)
                 new_proposed_pos = SimpleGame._translate_step(lion_pos, step)
                 new_pos = lion_pos
@@ -334,10 +346,11 @@ class ExtendedGame(SimpleGame):
         self.board[position.x][position.y] = TileState.LAND
 
     def _valid_shot(self):
+        #kinda redundant, as we cant reach here if it's not a valid shot, don't remove anyway
         env = self.get_environment()
         lion_count = 0
         for tile in env.get_as_list():
-            if tile == TileState.LION:
+            if tile == TileState.LION.value:
                 lion_count += 1
         return lion_count == 1
 
@@ -345,6 +358,6 @@ class ExtendedGame(SimpleGame):
         env = self.get_environment()
         lion_count = 0
         for tile in env.get_as_list():
-            if tile == TileState.LION:
+            if tile == TileState.LION.value:
                 lion_count += 1
         return lion_count > 1

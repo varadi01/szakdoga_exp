@@ -24,4 +24,4 @@ def generate_data(alg, filename: str = "dataset", data_length: int = 1000):
 
 #generate_data(RuleBasedPlayer,"gt_dataset", 2000)
 # generate_data(ExtendedRuleBasePlayer, "gt_ex_dataset", 2000)
-generate_data(ExtendedRuleBasePlayer, "ge_ex_dataset", 2000)
+# generate_data(ExtendedRuleBasePlayer, "ge_ex_dataset", 2000)

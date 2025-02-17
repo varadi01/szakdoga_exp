@@ -23,7 +23,7 @@ from keras._tf_keras.keras.optimizers import Adam
 from keras._tf_keras.keras.models import Sequential
 from keras._tf_keras.keras.layers import Dense, Input
 from keras._tf_keras.keras.metrics import categorical_crossentropy
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, MultiLabelBinarizer, LabelBinarizer
 from sklearn.utils import shuffle
 
 from game_environment.scenario import SimpleGame
@@ -43,6 +43,7 @@ def _get_dataset_from_source(source):
     labels = []
     f = open(source, "+r")
     lines = f.readlines()
+    lb = LabelBinarizer()
     for line in lines:
         env, action = line.split(';')
         tile_states = env.split(',')
@@ -52,18 +53,40 @@ def _get_dataset_from_source(source):
             int(tile_states[2]),
             int(tile_states[3])
         ])
-        label = np.zeros(5,) #!!! CHANGE BACK-FORTH
-        label[int(action)] = 1
+        labels.append(action)
+    labels = lb.fit_transform(labels)
+    f.close()
+    return samples, labels
+
+def _get_multilabel_dataset_from_source(source):
+    samples = []
+    labels = []
+    f = open(source, "+r")
+    lines = f.readlines()
+    mlb = MultiLabelBinarizer()
+    for line in lines:
+        env, actions = line.split(';')
+        tile_states = env.split(',')
+        samples.append([
+            int(tile_states[0]),
+            int(tile_states[1]),
+            int(tile_states[2]),
+            int(tile_states[3])
+        ])
+        label = actions.split(',')
+        for i in range(len(label)):
+            label[i] = int(label[i])
         labels.append(label)
+    labels = mlb.fit_transform(labels)
     f.close()
     return samples, labels
 
 def save_model(model: Sequential, name):
-    path = os.path.join(os.getcwd(),'..', 'deepl', 'models', name + '.keras')
+    path = os.path.join(os.getcwd(),'..', 'deepl', 'new_models', name + '.keras')
     model.save(path)
 
 def load_model(name):
-    path = os.path.join(os.getcwd(),'..', 'deepl', 'models', name + '.keras')
+    path = os.path.join(os.getcwd(),'..', 'deepl', 'new_models', name + '.keras')
     return keras._tf_keras.keras.models.load_model(path)
 
 class Deepl:
@@ -159,12 +182,71 @@ class ExtendedDeepl(Deepl):
         while game.is_alive:
             env = game.get_environment()
             prediction = self.model.predict(np.array(env.get_as_list())[None,...])
-            print(prediction)
+            #print(prediction)
             step_int = np.argmax(prediction)
             print(Step(step_int))
             game.make_step(Step(step_int))
             steps += 1
         print(f" taken:{steps} food:{game.steps_left}")
+
+
+class MultiLabelDeepl:
+
+    def __init__(self, optimizer=Adam, learning_rate=0.02, loss='binary_crossentropy', metrics=['accuracy']):
+        self.model = Sequential([
+            Input(shape=(4,)),
+            Dense(units=64, activation='relu'),
+            Dense(units=64, activation='relu'),
+            Dense(units=4, activation='sigmoid')
+        ])
+        self.model.compile(
+            optimizer=optimizer(learning_rate=learning_rate),
+            loss=loss, metrics=metrics)
+
+    def learn(self, path, batch: int = 100, epochs: int = 100, validation_split=0.05):
+        samples, labels = _get_multilabel_dataset_from_source(path)
+        train_labels = np.array(labels)
+        train_samples = np.array(samples)
+        train_labels, train_samples = shuffle(train_labels, train_samples)
+
+        print(f"{train_samples[0]}, {train_labels[0]}")
+
+        # scaler = MinMaxScaler(feature_range=(0,1))
+        # scaled_train_samples = scaler.fit_transform(train_samples)
+
+        self.model.fit(x=train_samples, y=train_labels,
+                       validation_split=validation_split,
+                       batch_size=batch, epochs=epochs,
+                       verbose=2)
+
+
+    def test(self, game: SimpleGame):
+        steps = 0
+        while game.is_alive:
+            env = game.get_environment()
+            prediction = self.model.predict(np.array(env.get_as_list())[None,...])
+            print(prediction)
+            step_int = np.argmax(prediction)
+            # print(Step(step_int))
+            game.make_step(Step(step_int))
+            steps += 1
+        print(f" taken:{steps} food:{game.steps_left}")
+
+
+class MultiLabelDeeplExtended(MultiLabelDeepl):
+
+    def __init__(self, optimizer=Adam, learning_rate=0.02, loss='binary_crossentropy', metrics=['accuracy']):
+        super().__init__(optimizer, learning_rate, loss, metrics)
+        self.model = Sequential([
+            Input(shape=(4,)),
+            Dense(units=64, activation='relu'),
+            Dense(units=64, activation='relu'),
+            Dense(units=5, activation='sigmoid')
+        ])
+        self.model.compile(
+            optimizer=optimizer(learning_rate=learning_rate),
+            loss=loss, metrics=metrics)
+
 
 
 #SmallClassDeepl(Adam, 0.001, 'categorical_crossentropy', ['accuracy'])

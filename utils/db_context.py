@@ -28,7 +28,7 @@
 import pymongo
 from utils.db_serializers import RecordSerializer, ScenarioSerializer, GeneticIndividualSerializer
 client = pymongo.MongoClient("mongodb://localhost:27017/")
-db = client["thesis_database"]
+db = client["records"] # genetic_individuals / scenarios / records
 
 # record_col = db["records"]
 # scenario_col = db["scenarios"]

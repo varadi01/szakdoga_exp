@@ -142,13 +142,7 @@ class ExtendedRuleBasePlayer:
         if len(lions) > 1:
             c = Step.STAY
         elif len(lions) == 1:
-            if len(trees) > 0:
-                if self.game.steps_left >= 2: #tekitou ni
-                    c = lions[0]
-                else:
-                    c = choice(trees)
-            else:
-                c = lions[0]
+            c = lions[0]
         elif len(trees) > 0:
             c = choice(trees)
         elif len(land) > 0:

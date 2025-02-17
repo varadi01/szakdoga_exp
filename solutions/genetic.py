@@ -11,7 +11,7 @@ from utils.db_context import get_instance
 from utils.db_entities import GeneticIndividualModel
 from utils.genetic_action_utils import ActionHolder, Action
 
-POPULATION_SIZE = 20000
+POPULATION_SIZE = 10000
 
 CROSSOVER_RATE = 0.7
 MUTATION_RATE = 0.05
@@ -87,7 +87,7 @@ class Individual:
         self.steps_made = 0
 
     def is_fully_trained(self):
-        return len(self.known_actions.actions) >= 80 #probably
+        return len(self.known_actions.actions) >= 80
 
 class ExtendedIndividual(Individual):
 
@@ -95,7 +95,7 @@ class ExtendedIndividual(Individual):
                  known_actions: list[Action] = None,
                  parent_id: str = None, other_parent_id: str = None,
                  game_tree_ratio: float = None, game_lion_ratio: float = None):
-        super().__init__(generation, seq_num, copy.deepcopy(known_actions), parent_id, other_parent_id)
+        super().__init__(generation, seq_num, known_actions, parent_id, other_parent_id) #removed deepcopy
         if game_tree_ratio is not None:
             self.scenario = ExtendedGame(tree_ratio=game_tree_ratio, lion_ratio=game_lion_ratio)
         else:
@@ -127,6 +127,7 @@ class GeneticNaive:
 
     def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
         fully_trained_individuals = []
+        inds_with_won_games = []
         cycle = 1
         while cycle <= cycles:
             survivors = []
@@ -139,8 +140,11 @@ class GeneticNaive:
                     individual.scenario.is_alive = False #take them out
                 if individual.scenario.is_alive:
                     survivors.append(individual)
+                    if individual.scenario.is_won():
+                        inds_with_won_games.append(individual)
+                        individual.scenario.is_alive = False
                     #offspring
-                    if individual.steps_made % 3 == 0 and individual.previous_step != Step.STAY: #repro
+                    if individual.steps_made % 3 == 0 and individual.previous_step != Step.STAY and len(survivors) < POPULATION_SIZE:
                         new_ind = self._create_new_individual(cycle, len(survivors), individual)
                         survivors.append(new_ind)
 
@@ -153,7 +157,8 @@ class GeneticNaive:
         print("training finished")
         if do_save:
             save_individuals(target_collection, self.generation, "naive")
-            save_individuals(target_collection+"-ft", fully_trained_individuals, "naive") # !!! saving fully trained separately also
+            save_individuals(target_collection+"-ft", fully_trained_individuals, "naive")
+            save_individuals(target_collection+"won", inds_with_won_games, 'naive')
 
     def _initialize_generation(self, existing_generation, population_size):
         if existing_generation is not None:
@@ -189,11 +194,15 @@ class Genetic:
         #mutation
         cycle = 1
         fully_trained_individuals = []
+        inds_with_won_games = []
         while cycle <= cycles:
             print(f"cycle {cycle} started")
             self.newest_generation_number = cycle
             for individual in self.generation:
                 individual.act()
+                if individual.scenario.is_won():
+                    inds_with_won_games.append(individual)
+                    individual.scenario.is_alive = False
                 # if individual.is_fully_trained():
                 #     fully_trained_individuals.append(individual)
                 #     individual.scenario.is_alive = False #todo messes up progressive, but otherwise is necessary
@@ -207,6 +216,7 @@ class Genetic:
         if do_save:
             save_individuals(target_collection, self.generation, "normal")
             save_individuals(target_collection+"-ft", fully_trained_individuals, "normal")
+            save_individuals(target_collection+"-won", inds_with_won_games, "normal")
         print("end genetic")
 
     def selection(self):

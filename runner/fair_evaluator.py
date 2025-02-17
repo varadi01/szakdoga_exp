@@ -268,17 +268,26 @@ def eval_gen_extended(scenarios: list[ExtendedGame], gen_collection, target_coll
 
 
 #generated scenario bundles
-# 0.5, 0, "simple", "simple_T50L00"
-# 0.3, 0, "simple", "simple_T30L00"
-# 0.3, 0.1, "simple", "simple_T30L10"
-# 0.3, 0.3, "simple", "simple_T30L30"
-# 0.4, 0.4, "simple", "simple_T40L40"
-# 0.3, 0.5, "simple", "simple_T30L50"
-# 0.3, 0.1, "extended", "extended_T30L10"
-# 0.3, 0.3, "extended", "extended_T30L30"
-# 0.4, 0.4, "extended", "extended_T40L40"
-# 0.3, 0.5, "extended", "extended_T30L50"
-# generate_scenarios(0.3, 0.1, "extended", "extended_T30L10")
-# generate_scenarios(0.3, 0.3, "extended", "extended_T30L30")
-# generate_scenarios(0.4, 0.4, "extended", "extended_T40L40")
-# generate_scenarios(0.3, 0.5, "extended", "extended_T30L50")
+
+
+generate_scenarios(0.3, 0, "simple", "simple_T30L00")
+generate_scenarios(0.3, 0.1, "simple", "simple_T30L10")
+generate_scenarios(0.3, 0.3, "simple", "simple_T30L30")
+generate_scenarios(0.3, 0.4, "simple", "simple_T30L40")
+generate_scenarios(0.3, 0.5, "simple", "simple_T30L50")
+generate_scenarios(0.2, 0.4, "simple", "simple_T30L40")
+generate_scenarios(0.2, 0.6, "simple", "simple_T30L60")
+generate_scenarios(0.15, 0.4, "simple", "simple_T15L40")
+generate_scenarios(0.1, 0.4, "simple", "simple_T10L40")
+generate_scenarios(0.3, 0.1, "extended", "extended_T30L10")
+generate_scenarios(0.3, 0.2, "extended", "extended_T30L20")
+generate_scenarios(0.3, 0.3, "extended", "extended_T30L30")
+generate_scenarios(0.3, 0.4, "extended", "extended_T30L40")
+generate_scenarios(0.4, 0.4, "extended", "extended_T40L40")
+generate_scenarios(0.4, 0.5, "extended", "extended_T40L50")
+generate_scenarios(0.3, 0.5, "extended", "extended_T30L50")
+generate_scenarios(0.2, 0.3, "extended", "extended_T20L30")
+generate_scenarios(0.2, 0.4, "extended", "extended_T20L40")
+generate_scenarios(0.15, 0.3, "extended", "extended_T15L30")
+generate_scenarios(0.15, 0.4, "extended", "extended_T15L40")
+generate_scenarios(0.10, 0.4, "extended", "extended_T10L40")
