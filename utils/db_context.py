@@ -28,7 +28,7 @@
 import pymongo
 from utils.db_serializers import RecordSerializer, ScenarioSerializer, GeneticIndividualSerializer
 client = pymongo.MongoClient("mongodb://localhost:27017/")
-db = client["records"] # genetic_individuals / scenarios / records
+# genetic_individuals / scenarios / records
 
 # record_col = db["records"]
 # scenario_col = db["scenarios"]
@@ -38,14 +38,20 @@ def check():
     dblist = client.list_database_names()
     print(f"found databases: {dblist}")
 
-    collist = db.list_collection_names()
-    print(f"found collections: {collist}")
+    # collist = db.list_collection_names()
+    # print(f"found collections: {collist}")
 
 class DBContext:
 
-    def __init__(self, collection, dt):
+    def __init__(self, collection, dt, source_db: str):
         """collection: collection name
         dt: 'r-s-g'"""
+        if source_db is not None:
+            db = client[source_db]
+            collist = db.list_collection_names()
+            print(f"found collections: {collist}")
+        else:
+            db = client["records"]
         self.collection = db[collection] #may need db source
         match dt:
             case 'r':
@@ -73,8 +79,8 @@ class DBContext:
     def drop(self):
         self.collection.drop()
 
-def get_instance(collection: str, dt: str) -> DBContext:
-    return DBContext(collection, dt)
+def get_instance(collection: str, dt: str, source_db: str = None) -> DBContext:
+    return DBContext(collection, dt, source_db)
 
 check()
 

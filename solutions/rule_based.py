@@ -145,7 +145,7 @@ class ExtendedRuleBasePlayer:
             c = lions[0]
         elif len(trees) > 0:
             c = choice(trees)
-        elif len(land) > 0:
+        else:
             c = choice(land)
         return c
 
@@ -186,3 +186,6 @@ class ExtendedRuleBasePlayer:
         db.insert(record)
 
 # RuleBasedPlayer(tree_ratio=0.4, lion_ratio=0.4).eval()
+
+
+

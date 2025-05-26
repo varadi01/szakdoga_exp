@@ -22,7 +22,7 @@ from utils.scenario_utils import Step, ExtendedStep, ResultOfStep, ExtendedResul
 from game_environment.scenario import SimpleGame, ExtendedGame
 
 
-REWARD_FOR_FINDING_TREE = 50
+REWARD_FOR_FINDING_TREE = 1
 REWARD_FOR_TAKING_STEP = 0
 REWARD_FOR_GETTING_EATEN = 0
 REWARD_FOR_STARVING = 0 #prolly dont need this?
@@ -91,7 +91,7 @@ class CustomEnvForSimpleGame(gym.Env):
         """render a view of episodes"""
         return NotImplementedError("we don't do that here")
 
-REWARD_FOR_SHOOTING_LION = 500
+REWARD_FOR_SHOOTING_LION = 2
 
 class CustomEnvForExtendedGame(gym.Env):
     """Custom environment of the game for agents to operate on"""
@@ -207,6 +207,7 @@ class Agent:
         cumulated_reward = 0
         while True:
             action, _states = self.model.predict(obs)
+            # print(f"obs: {obs}")
             obs, rewards, done, _, info = env.step(action)
             # print(f"action taken: {Step(action)}, reward gotten: {rewards},food: {env.scenario.steps_left}, info: {info}")
             cumulated_reward += rewards
@@ -216,13 +217,13 @@ class Agent:
                 break
 
     def save_model(self, model):
-        path = os.path.join(os.getcwd(), "..", 'rl', 'new_models', self.name)
+        path = os.path.join(os.getcwd(), "..", 'rl', 'models_4_ex', self.name) #changed!
         print(path)
         model.save(path)
 
     def load_model(self, model_name: str, env = None):
-        path = os.path.join(os.getcwd(), '..', 'rl', 'new_models', model_name)
+        path = os.path.join(os.getcwd(), '..', 'rl', 'models_4_ex', model_name) #changed!
         print(path)
-        if not os.path.isfile(path):
-            FileNotFoundError("no model with such a name exists")
+        # if not os.path.isfile(path):
+        #     FileNotFoundError("no model with such a name exists")
         self.model = self.alg.load(path, env=env) #might not be path

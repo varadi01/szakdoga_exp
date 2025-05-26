@@ -5,7 +5,7 @@
 import copy
 
 from game_environment.scenario import SimpleGame, ContextHolder, ContextBasedGame, ExtendedGame
-from utils.scenario_utils import Environment, Step, ExtendedStep
+from utils.scenario_utils import Environment, Step, ExtendedStep, TileState, ResultOfStep, ExtendedResultOfStep
 from random import choice, random
 from utils.db_context import get_instance
 from utils.db_entities import GeneticIndividualModel
@@ -36,7 +36,11 @@ def models_to_individuals(models: list[GeneticIndividualModel]):
 def save_individuals(col, individuals_to_save, env_type):
     if len(individuals_to_save) == 0:
         return
-    db = get_instance(col, 'g')
+    # for individual in individuals_to_save:
+    #     for a in individual.known_actions.actions:
+    #         if a.env.get_as_list()[a.step.value] == 2:
+    #             print(f"bad step {a.env.get_as_list()} - {a.step.value} before save")
+    db = get_instance(col, 'g', "extended_genetic_ind_actual") #changed!
     models = []
     for ind in individuals_to_save:
         models.append(
@@ -61,7 +65,7 @@ class Individual:
         self.parent_id = parent_id
         self.other_parent_id = other_parent_id
         if known_actions is not None:
-            self.known_actions = ActionHolder(known_actions)
+            self.known_actions = ActionHolder(copy.deepcopy(known_actions))
         else:
             self.known_actions = ActionHolder()
         if game_tree_ratio is not None:
@@ -71,7 +75,7 @@ class Individual:
         self.steps_made = 0
         self.previous_step = None #roundabout solution
 
-    def act(self):
+    def act(self) -> ResultOfStep:
         current_environment = self.scenario.get_environment()
         if self.known_actions.is_env_known(current_environment):
             step_to_take = self.known_actions.get_action_for_env(current_environment).step
@@ -79,7 +83,16 @@ class Individual:
             step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
             self.known_actions.add_action(Action(current_environment, step_to_take))
         self.steps_made += 1
-        self.scenario.make_step(step_to_take)
+        return self.scenario.make_step(step_to_take)
+
+        # current_environment = self.scenario.get_environment()
+        # if self.known_actions.is_env_known(current_environment):
+        #     step_to_take = self.known_actions.get_action_for_env(current_environment).step
+        # else:
+        #     step_to_take = choice((Step.UP, Step.RIGHT, Step.DOWN, Step.LEFT))
+        # self.scenario.make_step(step_to_take)
+        # if not self.known_actions.is_env_known(current_environment) and self.scenario.is_alive:
+        #     self.known_actions.add_action(Action(current_environment, step_to_take))
 
     def set_specific_scenario(self, scenario):
         """scenario must be an initialized game"""
@@ -95,13 +108,13 @@ class ExtendedIndividual(Individual):
                  known_actions: list[Action] = None,
                  parent_id: str = None, other_parent_id: str = None,
                  game_tree_ratio: float = None, game_lion_ratio: float = None):
-        super().__init__(generation, seq_num, known_actions, parent_id, other_parent_id) #removed deepcopy
+        super().__init__(generation, seq_num, copy.deepcopy(known_actions), parent_id, other_parent_id)
         if game_tree_ratio is not None:
             self.scenario = ExtendedGame(tree_ratio=game_tree_ratio, lion_ratio=game_lion_ratio)
         else:
             self.scenario = ExtendedGame()
 
-    def act(self):
+    def act(self) -> ResultOfStep:
         current_environment = self.scenario.get_environment()
         if self.known_actions.is_env_known(current_environment):
             step_to_take = self.known_actions.get_action_for_env(current_environment).step
@@ -110,8 +123,11 @@ class ExtendedIndividual(Individual):
             self.known_actions.add_action(Action(current_environment, step_to_take))
         if step_to_take != Step.STAY:
             self.steps_made += 1
-        self.scenario.make_step(step_to_take)
         self.previous_step = step_to_take
+        return self.scenario.make_step(step_to_take)
+
+    def is_fully_trained(self):
+        return len(self.known_actions.actions) == 81
 
 
 class GeneticNaive:
@@ -124,32 +140,47 @@ class GeneticNaive:
         self.game_lion_ratio = game_lion_ratio
         self.individual_type = individual_type
         self.generation = self._initialize_generation(existing_generation, number_of_individuals)
+        self.number_of_individuals = number_of_individuals
 
     def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
         fully_trained_individuals = []
         inds_with_won_games = []
         cycle = 1
+
         while cycle <= cycles:
             survivors = []
-            print(f"cycle {cycle} started")
-            # advance every individual
-            for individual in [_ for _ in self.generation]: #??, necessary? to make copy I guess
-                individual.act()
-                if individual.is_fully_trained() and individual.scenario.is_alive:
-                    fully_trained_individuals.append(individual)
-                    individual.scenario.is_alive = False #take them out
-                if individual.scenario.is_alive:
-                    survivors.append(individual)
-                    if individual.scenario.is_won():
-                        inds_with_won_games.append(individual)
-                        individual.scenario.is_alive = False
-                    #offspring
-                    if individual.steps_made % 3 == 0 and individual.previous_step != Step.STAY and len(survivors) < POPULATION_SIZE:
-                        new_ind = self._create_new_individual(cycle, len(survivors), individual)
-                        survivors.append(new_ind)
+            # print(f"cycle {cycle} started")
 
+            for individual in self.generation:
+                individual.act()
+
+            print(len(self.generation))
+
+
+            for individual in self.generation:
+                if individual.scenario.is_alive:
+                    if individual.is_fully_trained():
+                        fully_trained_individuals.append(individual)
+                    else:
+                        survivors.append(individual)
+
+            children = []
+            for individual in survivors:
+                if individual.scenario.is_won():
+                    inds_with_won_games.append(individual)
+                    individual.scenario.is_alive = False
+                if (individual.steps_made % 3 == 0
+                        and individual.previous_step != Step.STAY):
+                        #and len(children) < self.number_of_individuals - len(survivors)):
+                    new_ind = self.individual_type(cycle, len(children),
+                                                known_actions=individual.known_actions.actions,
+                                                parent_id=individual.id,
+                                                game_tree_ratio=self.game_tree_ratio,
+                                                game_lion_ratio=self.game_lion_ratio)
+                    children.append(new_ind)
+            survivors.extend(children)
             self.generation = survivors
-            print(f"cycle: {cycle}, num of survivors: {len(survivors)}")
+            # print(f"cycle: {cycle}, num of survivors: {len(survivors)}")
 
             if len(survivors) == 0:
                 break
@@ -188,10 +219,6 @@ class Genetic:
 
     def train(self, cycles: int, do_save: bool = False, target_collection: str = None):
         print("starting genetic")
-        #stable population:
-        #each ind. takes a step, fitness check to eliminate unwanted ones
-        #selection to top up population?
-        #mutation
         cycle = 1
         fully_trained_individuals = []
         inds_with_won_games = []
@@ -200,19 +227,22 @@ class Genetic:
             self.newest_generation_number = cycle
             for individual in self.generation:
                 individual.act()
-                if individual.scenario.is_won():
+                if individual.scenario.is_won() and individual.scenario.is_alive:
                     inds_with_won_games.append(individual)
                     individual.scenario.is_alive = False
-                # if individual.is_fully_trained():
-                #     fully_trained_individuals.append(individual)
-                #     individual.scenario.is_alive = False #todo messes up progressive, but otherwise is necessary
+                if individual.is_fully_trained() and individual.scenario.is_alive:
+                    fully_trained_individuals.append(individual)
+                    individual.scenario.is_alive = False # messes up progressive, but otherwise is necessary
+                    pass
             self.selection()
             print(f"{len(self.generation)} individuals selected")
             if len(self.generation) == 0:
                 break
             self.reproduction()
-            self.mutation()
+            if cycle < cycles - 5:
+                self.mutation()
             cycle += 1
+
         if do_save:
             save_individuals(target_collection, self.generation, "normal")
             save_individuals(target_collection+"-ft", fully_trained_individuals, "normal")
@@ -222,8 +252,10 @@ class Genetic:
     def selection(self):
         selected = []
         for individual in self.generation:
-            if self.fitness(individual):
+            if individual.scenario.is_alive:
                 selected.append(individual)
+            # if Genetic.fitness(individual):
+            #     selected.append(individual)
         self.generation = selected
 
     def mutation(self):
@@ -242,30 +274,31 @@ class Genetic:
             parent2 = choice(self.generation)
             #create new moving function set
             inherited_actions: ActionHolder = ActionHolder()
-            if random() < CROSSOVER_RATE:
-                parent1, parent2 = parent2, parent1
+            # if random() < CROSSOVER_RATE:
+            #     parent1, parent2 = parent2, parent1
             for action in parent1.known_actions.actions:
                 inherited_actions.add_action(action)
             for action in parent2.known_actions.actions:
                 inherited_actions.add_action(action)
             #create child
             new_individual = self.individual_type(self.newest_generation_number, seq_num,
-                                                           inherited_actions.actions,
+                                                           copy.deepcopy(inherited_actions.actions),
                                                            parent1.id, parent2.id,
                                                            self.game_tree_ratio, self.game_lion_ratio)
             seq_num += 1
             self.generation.append(new_individual)
 
-    def fitness(self, individual: Individual) -> bool:
+    @staticmethod
+    def fitness(individual: Individual) -> bool:
         #should we check learnt moves or just based on steps? OR just if its alive?
         #maybe other factors kick in after a certain number of gens
         #top 50%?
-        if not individual.scenario.is_alive:
-            return False
-        #maybe check other parameters
-        return True
+        for a in individual.known_actions.actions:
+            if a.env.get_as_list()[a.step.value] == 2:
+                return False
+        return individual.scenario.is_alive
 
-    def _initialize_generation(self, existing_generation, population_size, scenario_type: SimpleGame = SimpleGame):
+    def _initialize_generation(self, existing_generation, population_size, scenario_type: SimpleGame = ExtendedGame): #change scenario_type
         if existing_generation is not None:
             for ind in existing_generation:
                 ind.set_specific_scenario(scenario_type(tree_ratio=self.game_tree_ratio, lion_ratio=self.game_lion_ratio))

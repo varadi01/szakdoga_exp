@@ -29,11 +29,12 @@ class RecordSerializer(Serializer):
     def serialize(self, obj: RecordModel) -> dict:
         return {
             "player_id": obj.player_id,
-            "result": obj.result.value,
+            "result": obj.result,
             "steps_taken": obj.steps_taken,
             "food_at_end": obj.food_at_end,
             "env_type": obj.env_type,
-            "env_parameter_string": obj.env_parameter_string
+            "env_parameter_string": obj.env_parameter_string,
+            "lions_shot": obj.shot_lions
         }
 
 
@@ -44,7 +45,8 @@ class RecordSerializer(Serializer):
             doc["steps_taken"],
             doc["food_at_end"],
             doc["env_type"],
-            doc["env_parameter_string"]
+            doc["env_parameter_string"],
+            doc["lions_shot"]
         )
 
 class ScenarioSerializer(Serializer):
